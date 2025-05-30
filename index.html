@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Разводк-О-Мат v3.1</title>
+    <link rel="stylesheet" href="index.css">
+    <script type="module" src="index.tsx"></script>
+<script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^1.2.0",
+    "showdown": "https://esm.sh/showdown@^2.1.0"
+  }
+}
+</script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 id="appTitle">Разводк-О-Мат v3.1</h1>
+            <p>Последовательный анализ сомнительных офферов: формальная оценка и саркастический комментарий.</p>
+        </header>
+        <main>
+            <section class="input-section" aria-labelledby="input-label">
+                <h2 id="input-label" class="sr-only">Ввод текста оффера</h2>
+                <label for="offerText">Введите текст оффера или коммерческого предложения для анализа:</label>
+                <textarea id="offerText" rows="10" placeholder="Вставьте сюда текст оффера..." aria-label="Текст оффера для анализа"></textarea>
+                <button id="analyzeButton" aria-label="Начать анализ оффера">Анализировать</button>
+            </section>
+
+            <div class="results-container" style="display: none;">
+                <section class="output-section result-panel" aria-labelledby="formal-output-label">
+                    <h2 id="formal-output-label" class="panel-title">Формальный анализ</h2>
+                    <div id="loading" class="loading-indicator" role="status" aria-live="polite" style="display: none;">
+                        <div class="spinner"></div>
+                        Анализирую... Пожалуйста, подождите.
+                    </div>
+                    <div id="error" class="error-message" role="alert" aria-live="assertive" style="display: none;"></div>
+                    <div id="result" class="result-content" aria-live="polite" style="display: none;"></div>
+                </section>
+
+                <section class="output-section result-panel" aria-labelledby="sarcastic-output-label">
+                    <h2 id="sarcastic-output-label" class="panel-title">Саркастический комментарий</h2>
+                    <div id="sarcasticLoading" class="loading-indicator" role="status" aria-live="polite" style="display: none;">
+                        <div class="spinner"></div>
+                        Саркастический ум размышляет...
+                    </div>
+                    <div id="sarcasticError" class="error-message" role="alert" aria-live="assertive" style="display: none;"></div>
+                    <div id="sarcasticResult" class="result-content" aria-live="polite" style="display: none;"></div>
+                </section>
+            </div>
+        </main>
+        <footer>
+            <p>&copy; 2024 Разводк-О-Мат v3.1. Все права защищены (но это не точно).</p>
+        </footer>
+    </div>
+</body>
+</html><link rel="stylesheet" href="index.css">
+<script src="index.tsx" type="module"></script>
