@@ -5,20 +5,33 @@
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import showdown from 'showdown';
 
-const APP_TITLE = "Разводк-О-Мат v3.1";
-
-// API Key must be in environment variable process.env.API_KEY
-const API_KEY = process.env.API_KEY;
-
-let ai: GoogleGenAI | null = null;
-
-if (API_KEY) {
-    ai = new GoogleGenAI({ apiKey: API_KEY });
-}
-
-const GEMINI_MODEL = 'gemini-2.5-flash-preview-04-17';
-
-const PROMPT_TEMPLATE_HEADER = `Ты выступаешь в роли ассистента "Разводк-О-Мат", созданного для анализа коммерческих предложений, инвестиционных офферов и авторских курсов с точки зрения:
+// --- START INTERNATIONALIZATION (I18N) ---
+const translations = {
+    ru: {
+        APP_TITLE: "Разводк-О-Мат v3.2",
+        PAGE_SUBTITLE: "Последовательный анализ сомнительных офферов: формальная оценка и саркастический комментарий.",
+        INPUT_SECTION_SR_LABEL: "Ввод текста оффера",
+        INPUT_LABEL: "Введите текст оффера или коммерческого предложения для анализа:",
+        TEXTAREA_PLACEHOLDER: "Вставьте сюда текст оффера...",
+        TEXTAREA_ARIA_LABEL: "Текст оффера для анализа",
+        ANALYZE_BUTTON: "Анализировать",
+        ANALYZE_BUTTON_ARIA_LABEL: "Начать анализ оффера",
+        FORMAL_PANEL_DEFAULT_TITLE: "Формальный анализ",
+        SARCASTIC_PANEL_DEFAULT_TITLE: "Саркастический комментарий",
+        LOADING_FORMAL: "Анализирую... Пожалуйста, подождите.",
+        LOADING_SARCASTIC: "Саркастический ум размышляет...",
+        ERROR_INPUT_EMPTY: "Пожалуйста, введите текст оффера для анализа.",
+        ERROR_CONFIG: "Ошибка конфигурации: API ключ не найден или недействителен. Пожалуйста, убедитесь, что API_KEY установлен в переменных окружения и действителен.",
+        ERROR_INIT_FAILED: "Ошибка инициализации приложения: не найдены ключевые элементы страницы для одного или обоих анализаторов.",
+        ERROR_FORMAL_API_BASE: "Произошла ошибка при формальном анализе оффера.",
+        ERROR_SARCASTIC_API_BASE: "Произошла ошибка при саркастическом анализе оффера.",
+        ERROR_UNEXPECTED: "Произошла непредвиденная ошибка. Пожалуйста, попробуйте еще раз.",
+        SARCASTIC_ANALYSIS_CANCELLED_MSG: "Формальный анализ не был успешно завершен, поэтому саркастический анализ не может быть выполнен.",
+        SARCASTIC_ANALYSIS_CANCELLED_TITLE: "Саркастический анализ отменен",
+        FOOTER_TEXT: "&copy; 2024 Разводк-О-Мат v3.2. Все права защищены (но это не точно).",
+        SCORE_LINE_PREFIX: "Оценка Разводк-О-Мат:",
+        SCORE_REGEX_PATTERN: "^Оценка Разводк-О-Мат:\\s*(\\d+)\\/10",
+        PROMPT_TEMPLATE_HEADER: `Ты выступаешь в роли ассистента "Разводк-О-Мат", созданного для анализа коммерческих предложений, инвестиционных офферов и авторских курсов с точки зрения:
 - этичности,
 - прозрачности бизнес-модели,
 - манипулятивных приёмов,
@@ -27,9 +40,8 @@ const PROMPT_TEMPLATE_HEADER = `Ты выступаешь в роли ассис
 
 Проанализируй следующий текст оффера:
 """
-`; // User offer text will be inserted here
-
-const PROMPT_TEMPLATE_FOOTER = `
+`,
+        PROMPT_TEMPLATE_FOOTER: `
 """
 
 Применяй следующие **6 критериев оценки** (по шкале от 0 до 3):
@@ -58,31 +70,25 @@ const PROMPT_TEMPLATE_FOOTER = `
 2. Пояснение к итоговой оценке (сама оценка выведена отдельной первой строкой).
 3. Маркер риска (⚠️ / ✅ / ❗)
 4. Рекомендацию
-`;
-
-const PROMPT_SARCASTIC_ANALYST_INTRO = `Ты — аналитик манипулятивных маркетинговых схем, циничный и остроумный, но без явных обвинений в мошенничестве. Твоя задача — вскрывать риторические уловки, маркетинговую демагогию, завуалированные схемы привлечения денег и сомнительные способы убеждения.
-`;
-
-const PROMPT_SARCASTIC_ANALYST_OFFER_TEXT_LABEL = `
+`,
+        PROMPT_SARCASTIC_ANALYST_INTRO: `Ты — аналитик манипулятивных маркетинговых схем, циничный и остроумный, но без явных обвинений в мошенничестве. Твоя задача — вскрывать риторические уловки, маркетинговую демагогию, завуалированные схемы привлечения денег и сомнительные способы убеждения.
+`,
+        PROMPT_SARCASTIC_ANALYST_OFFER_TEXT_LABEL: `
 Ты анализируешь следующий **исходный текст оффера**:
 """
-`; // User offer text will be inserted here
-
-const PROMPT_SARCASTIC_ANALYST_FORMAL_ANALYSIS_LABEL = `
+`,
+        PROMPT_SARCASTIC_ANALYST_FORMAL_ANALYSIS_LABEL: `
 """
 
 При этом, **учитывай следующий предварительный формальный анализ**, но НЕ ПОВТОРЯЙ его выводы, а используй для более глубокого саркастического комментария:
 """
-`; // Formal analysis text will be inserted here
-
-const PROMPT_SARCASTIC_ANALYST_INSTRUCTION_AFTER_INPUTS = `
+`,
+        PROMPT_SARCASTIC_ANALYST_INSTRUCTION_AFTER_INPUTS: `
 """
 
 Твой анализ должен быть основан на **исходном тексте оффера**, но с учетом данных из формального анализа.
-`;
-
-
-const PROMPT_SARCASTIC_ANALYST_FOOTER = `
+`,
+        PROMPT_SARCASTIC_ANALYST_FOOTER: `
 При этом:
 - Не используешь слово "scam", "fraud", "мошенничество".
 - Говоришь как бы "между строк", с умной иронией.
@@ -102,18 +108,146 @@ const PROMPT_SARCASTIC_ANALYST_FOOTER = `
 
 Избегай общих фраз, отвечай по существу.
 Ответ должен быть в текстовом формате, можно использовать markdown для списков или выделения.
-`;
+`,
+        FORMAL_PANEL_TITLES: ["Анализ документа", "Экспертная оценка", "Формальное заключение", "Разбор по существу", "Результаты анализа", "Аналитический отчет"],
+        SARCASTIC_PANEL_TITLES_LOW_SCORE: ["Тревожный звоночек!", "Осторожно, минное поле!", "Здесь пахнет разводом!", "Держите кошелек покрепче!", "Сигнал 'SOS' для вашего бюджета"],
+        SARCASTIC_PANEL_TITLES_MID_SCORE: ["Скептический взгляд", "Есть нюансы...", "Не всё так гладко", "Под лупой сарказма", "Читаем между строк"],
+        SARCASTIC_PANEL_TITLES_HIGH_SCORE: ["Ну, допустим...", "Почти без подвоха?", "Удивили (не сарказм)", "Можно рассмотреть... с опаской", "Неожиданно достойно"],
+        SARCASTIC_PANEL_TITLES_DEFAULT: ["Мнение (очень) частного лица", "Как я это вижу", "Пара мыслей вслух", "Без протокола", "Комментарий циника"],
+    },
+    en: {
+        APP_TITLE: "Scam-O-Mat v3.2",
+        PAGE_SUBTITLE: "Sequential analysis of dubious offers: formal assessment and sarcastic commentary.",
+        INPUT_SECTION_SR_LABEL: "Offer Text Input",
+        INPUT_LABEL: "Enter the text of the offer or commercial proposal for analysis:",
+        TEXTAREA_PLACEHOLDER: "Paste the offer text here...",
+        TEXTAREA_ARIA_LABEL: "Offer text for analysis",
+        ANALYZE_BUTTON: "Analyze",
+        ANALYZE_BUTTON_ARIA_LABEL: "Start offer analysis",
+        FORMAL_PANEL_DEFAULT_TITLE: "Formal Analysis",
+        SARCASTIC_PANEL_DEFAULT_TITLE: "Sarcastic Commentary",
+        LOADING_FORMAL: "Analyzing... Please wait.",
+        LOADING_SARCASTIC: "Sarcastic mind at work...",
+        ERROR_INPUT_EMPTY: "Please enter the offer text for analysis.",
+        ERROR_CONFIG: "Configuration error: API key not found or invalid. Please ensure API_KEY is set in environment variables and is valid.",
+        ERROR_INIT_FAILED: "Application initialization error: key page elements for one or both analyzers were not found.",
+        ERROR_FORMAL_API_BASE: "An error occurred during the formal analysis of the offer.",
+        ERROR_SARCASTIC_API_BASE: "An error occurred during the sarcastic analysis of the offer.",
+        ERROR_UNEXPECTED: "An unexpected error occurred. Please try again.",
+        SARCASTIC_ANALYSIS_CANCELLED_MSG: "Formal analysis was not successfully completed, so sarcastic analysis cannot be performed.",
+        SARCASTIC_ANALYSIS_CANCELLED_TITLE: "Sarcastic Analysis Cancelled",
+        FOOTER_TEXT: "&copy; 2024 Scam-O-Mat v3.2. All rights reserved (but not really).",
+        SCORE_LINE_PREFIX: "Scam-O-Mat Score:",
+        SCORE_REGEX_PATTERN: "^Scam-O-Mat Score:\\s*(\\d+)\\/10",
+        PROMPT_TEMPLATE_HEADER: `You are an assistant "Scam-O-Mat", designed to analyze commercial proposals, investment offers, and author courses from the perspective of:
+- ethics,
+- transparency of the business model,
+- manipulative techniques,
+- feasibility of the stated benefits,
+- and a likely distribution of risks and income.
 
-const FORMAL_PANEL_TITLES = ["Анализ документа", "Экспертная оценка", "Формальное заключение", "Разбор по существу", "Результаты анализа", "Аналитический отчет"];
-const SARCASTIC_PANEL_TITLES_LOW_SCORE = ["Тревожный звоночек!", "Осторожно, минное поле!", "Здесь пахнет разводом!", "Держите кошелек покрепче!", "Сигнал 'SOS' для вашего бюджета"];
-const SARCASTIC_PANEL_TITLES_MID_SCORE = ["Скептический взгляд", "Есть нюансы...", "Не всё так гладко", "Под лупой сарказма", "Читаем между строк"];
-const SARCASTIC_PANEL_TITLES_HIGH_SCORE = ["Ну, допустим...", "Почти без подвоха?", "Удивили (не сарказм)", "Можно рассмотреть... с опаской", "Неожиданно достойно"];
-const SARCASTIC_PANEL_TITLES_DEFAULT = ["Мнение (очень) частного лица", "Как я это вижу", "Пара мыслей вслух", "Без протокола", "Комментарий циника"];
+Analyze the following offer text:
+"""
+`,
+        PROMPT_TEMPLATE_FOOTER: `
+"""
 
+Apply the following **6 evaluation criteria** (on a scale of 0 to 3):
+1. **Model Transparency** — how clearly and honestly it's described where the income comes from, how participation pays off.
+2. **Risk Assessment** — are there real losses for the participant if the author's hypotheses don't work out.
+3. **Sales Disguise** — does the author use a friendly narrative instead of a clear deal.
+4. **Manipulation and Pressure** — time limits, emotional hooks, guilt-tripping.
+5. **Value Content** — is a real skill, experience, product transmitted, or only images and promises.
+6. **Benefit Distribution** — who really gets the value, is a zero-sum effect possible.
+
+**Output a table** with brief assessments for each criterion and an explanation. Format the table using markdown.
+
+Then, provide a **final trust score (0–10)** and output a **recommendation**:
+- Ignore
+- With caution
+- Negotiations possible
+- Reliable
+
+Be sure to indicate a **risk marker** (e.g., ⚠️ High risk, ✅ Low risk, ❗ Medium risk).
+
+Do not use sarcasm or personal attacks. Style — analytical, direct, business-like.
+
+The response must include:
+0. **The first line of the response MUST BE**: "Scam-O-Mat Score: X/10" (where X is an **integer** final trust score **from 0 to 10**).
+1. Diagnostics based on 6 criteria (as a markdown table)
+2. Explanation for the final score (the score itself is on a separate first line).
+3. Risk marker (⚠️ / ✅ / ❗)
+4. Recommendation
+`,
+        PROMPT_SARCASTIC_ANALYST_INTRO: `You are an analyst of manipulative marketing schemes, cynical and witty, but without explicit accusations of fraud. Your task is to expose rhetorical tricks, marketing demagoguery, veiled money-making schemes, and questionable persuasion methods.
+`,
+        PROMPT_SARCASTIC_ANALYST_OFFER_TEXT_LABEL: `
+You are analyzing the following **original offer text**:
+"""
+`,
+        PROMPT_SARCASTIC_ANALYST_FORMAL_ANALYSIS_LABEL: `
+"""
+
+At the same time, **consider the following preliminary formal analysis**, but DO NOT REPEAT its conclusions; instead, use it for a deeper sarcastic commentary:
+"""
+`,
+        PROMPT_SARCASTIC_ANALYST_INSTRUCTION_AFTER_INPUTS: `
+"""
+
+Your analysis should be based on the **original offer text**, but taking into account the data from the formal analysis.
+`,
+        PROMPT_SARCASTIC_ANALYST_FOOTER: `
+In doing so:
+- Do not use words like "scam", "fraud".
+- Speak "between the lines", with clever irony.
+- Show what techniques are used: FOMO, social proof, authority bias, obfuscated pricing, emotional pressure, etc.
+- Do not give legal advice, but assess **logical persuasiveness** and **marketing ethics**.
+
+Speak concisely, with a touch of sarcasm. Benchmark — a review by an experienced marketer who left the industry after a series of disappointments.
+
+Always respond in the following structure:
+1. Brief verdict (one or two sentences).
+2. Main triggers / techniques.
+3. Conclusion about the risk-benefit ratio.
+
+If the text is transparent and honest — say so: "A rare case — everything here is open and honest. Commendable."
+
+If the text looks particularly suspicious and resembles known deception schemes, feel free to offer a witty historical or cultural analogy (e.g., "classic info-hustler funnel of the 2010s", "in the spirit of great combinators" or "old wine in new bottles from the world of finance"). Do this wittily and appropriately.
+
+Avoid general phrases, answer to the point.
+The response should be in text format; markdown can be used for lists or emphasis.
+`,
+        FORMAL_PANEL_TITLES: ["Document Analysis", "Expert Assessment", "Formal Conclusion", "Substantive Review", "Analysis Results", "Analytical Report"],
+        SARCASTIC_PANEL_TITLES_LOW_SCORE: ["Red Flag Alert!", "Warning: Minefield!", "Something Smells Fishy!", "Hold On To Your Wallet!", "SOS for Your Budget"],
+        SARCASTIC_PANEL_TITLES_MID_SCORE: ["A Skeptical Look", "There Are Nuances...", "Not So Smooth", "Under the Sarcasm Lens", "Reading Between the Lines"],
+        SARCASTIC_PANEL_TITLES_HIGH_SCORE: ["Well, Alright Then...", "Almost No Catch?", "Surprisingly (Not Sarcasm)", "Worth Considering... With Caution", "Unexpectedly Decent"],
+        SARCASTIC_PANEL_TITLES_DEFAULT: ["A (Very) Private Opinion", "How I See It", "A Few Thoughts Aloud", "Off The Record", "Cynic's Commentary"],
+    }
+};
+
+let currentLang = 'ru'; // Default language
+const userBrowserLang = navigator.language.split('-')[0];
+if (translations.hasOwnProperty(userBrowserLang)) {
+    currentLang = userBrowserLang;
+}
+const T = translations[currentLang as keyof typeof translations];
+// --- END INTERNATIONALIZATION (I18N) ---
+
+
+// API Key must be in environment variable process.env.API_KEY
+const API_KEY = process.env.API_KEY;
+
+let ai: GoogleGenAI | null = null;
+
+if (API_KEY) {
+    ai = new GoogleGenAI({ apiKey: API_KEY });
+}
+
+const GEMINI_MODEL = 'gemini-2.5-flash-preview-04-17';
 
 function parseScore(responseText: string): number | null {
     if (!responseText) return null;
-    const scoreRegex = /^Оценка Разводк-О-Мат:\s*(\d+)\/10/i;
+    const scoreRegex = new RegExp(T.SCORE_REGEX_PATTERN, 'i');
     const match = responseText.match(scoreRegex);
     if (match && match[1]) {
         const score = parseInt(match[1], 10);
@@ -126,42 +260,70 @@ function parseScore(responseText: string): number | null {
 
 
 document.addEventListener('DOMContentLoaded', () => {
-    const offerTextarea = document.getElementById('offerText') as HTMLTextAreaElement;
-    const analyzeButton = document.getElementById('analyzeButton') as HTMLButtonElement;
+    // Apply translations to HTML elements
+    document.documentElement.lang = currentLang;
+    const appTitleElement = document.getElementById('appTitle') as HTMLHeadingElement;
+    if (appTitleElement) appTitleElement.textContent = T.APP_TITLE;
+    const pageTitleElement = document.querySelector('title');
+    if (pageTitleElement) pageTitleElement.textContent = T.APP_TITLE;
     
-    const resultsContainer = document.querySelector('.results-container') as HTMLDivElement;
+    const appSubtitleElement = document.getElementById('appSubtitle') as HTMLParagraphElement;
+    if (appSubtitleElement) appSubtitleElement.textContent = T.PAGE_SUBTITLE;
 
-    const formalOutputLabel = document.getElementById('formal-output-label') as HTMLHeadingElement;
+    const inputSectionSrLabel = document.getElementById('input-label') as HTMLHeadingElement;
+    if (inputSectionSrLabel) inputSectionSrLabel.textContent = T.INPUT_SECTION_SR_LABEL;
+    
+    const offerTextLabelElement = document.getElementById('offerTextLabel') as HTMLLabelElement;
+    if (offerTextLabelElement) offerTextLabelElement.textContent = T.INPUT_LABEL;
+    
+    const offerTextarea = document.getElementById('offerText') as HTMLTextAreaElement;
+    if (offerTextarea) {
+        offerTextarea.placeholder = T.TEXTAREA_PLACEHOLDER;
+        offerTextarea.setAttribute('aria-label', T.TEXTAREA_ARIA_LABEL);
+    }
+    
+    const analyzeButton = document.getElementById('analyzeButton') as HTMLButtonElement;
+    if (analyzeButton) {
+        analyzeButton.textContent = T.ANALYZE_BUTTON;
+        analyzeButton.setAttribute('aria-label', T.ANALYZE_BUTTON_ARIA_LABEL);
+    }
+
+    const formalOutputLabelElement = document.getElementById('formal-output-label') as HTMLHeadingElement;
+    if (formalOutputLabelElement) formalOutputLabelElement.textContent = T.FORMAL_PANEL_DEFAULT_TITLE;
+    
+    const sarcasticOutputLabelElement = document.getElementById('sarcastic-output-label') as HTMLHeadingElement;
+    if (sarcasticOutputLabelElement) sarcasticOutputLabelElement.textContent = T.SARCASTIC_PANEL_DEFAULT_TITLE;
+
+    const loadingFormalTextElement = document.getElementById('loadingFormalText');
+    if (loadingFormalTextElement) loadingFormalTextElement.textContent = T.LOADING_FORMAL;
+    
+    const loadingSarcasticTextElement = document.getElementById('loadingSarcasticText');
+    if (loadingSarcasticTextElement) loadingSarcasticTextElement.textContent = T.LOADING_SARCASTIC;
+
+    const footerTextElement = document.getElementById('footerText');
+    if (footerTextElement) footerTextElement.innerHTML = T.FOOTER_TEXT; // Use innerHTML for &copy;
+
+    // Get other DOM elements
+    const resultsContainer = document.querySelector('.results-container') as HTMLDivElement;
     const resultDiv = document.getElementById('result') as HTMLDivElement;
     const loadingDiv = document.getElementById('loading') as HTMLDivElement;
     const errorDiv = document.getElementById('error') as HTMLDivElement;
 
-    const sarcasticOutputLabel = document.getElementById('sarcastic-output-label') as HTMLHeadingElement;
     const sarcasticResultDiv = document.getElementById('sarcasticResult') as HTMLDivElement;
     const sarcasticLoadingDiv = document.getElementById('sarcasticLoading') as HTMLDivElement;
     const sarcasticErrorDiv = document.getElementById('sarcasticError') as HTMLDivElement;
-
-    const appTitleElement = document.getElementById('appTitle') as HTMLHeadingElement;
-    if (appTitleElement) {
-        appTitleElement.textContent = APP_TITLE;
-    }
-    const pageTitleElement = document.querySelector('title');
-    if (pageTitleElement) {
-        pageTitleElement.textContent = APP_TITLE;
-    }
-
+    
     const globalErrorDiv = errorDiv; 
 
     if (!API_KEY || !ai) {
-        const configErrorMessage = "Ошибка конфигурации: API ключ не найден или недействителен. Пожалуйста, убедитесь, что API_KEY установлен в переменных окружения и действителен.";
         if (globalErrorDiv) {
-            globalErrorDiv.textContent = configErrorMessage;
+            globalErrorDiv.textContent = T.ERROR_CONFIG;
             globalErrorDiv.style.display = 'block';
             if(resultsContainer) resultsContainer.style.display = 'block'; 
-            if(formalOutputLabel) formalOutputLabel.textContent = 'Ошибка конфигурации';
-            if(sarcasticOutputLabel) sarcasticOutputLabel.style.display = 'none'; // Hide sarcastic panel title
+            if(formalOutputLabelElement) formalOutputLabelElement.textContent = T.ERROR_CONFIG.split(':')[0]; // "Ошибка конфигурации" or "Configuration error"
+            if(sarcasticOutputLabelElement) sarcasticOutputLabelElement.style.display = 'none';
         } else {
-            alert(configErrorMessage); 
+            alert(T.ERROR_CONFIG); 
         }
         if(analyzeButton) analyzeButton.disabled = true;
         if(offerTextarea) offerTextarea.disabled = true;
@@ -179,15 +341,15 @@ document.addEventListener('DOMContentLoaded', () => {
         ghCompatibleHeaderId: true,
     });
 
-    if (analyzeButton && offerTextarea && resultsContainer && formalOutputLabel && resultDiv && loadingDiv && errorDiv && sarcasticOutputLabel && sarcasticResultDiv && sarcasticLoadingDiv && sarcasticErrorDiv) {
+    if (analyzeButton && offerTextarea && resultsContainer && formalOutputLabelElement && resultDiv && loadingDiv && errorDiv && sarcasticOutputLabelElement && sarcasticResultDiv && sarcasticLoadingDiv && sarcasticErrorDiv) {
         analyzeButton.addEventListener('click', async () => {
             const offerText = offerTextarea.value.trim();
             
             if (!offerText) {
                 resultsContainer.style.display = 'block'; 
-                formalOutputLabel.textContent = 'Ошибка ввода';
-                sarcasticOutputLabel.textContent = ''; 
-                errorDiv.textContent = 'Пожалуйста, введите текст оффера для анализа.';
+                formalOutputLabelElement.textContent = T.ERROR_INPUT_EMPTY.split(':')[0]; // "Ошибка ввода" or similar
+                sarcasticOutputLabelElement.textContent = ''; 
+                errorDiv.textContent = T.ERROR_INPUT_EMPTY;
                 errorDiv.style.display = 'block';
                 resultDiv.style.display = 'none';
                 sarcasticResultDiv.style.display = 'none';
@@ -197,12 +359,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Reset UI and prepare for analysis
             resultsContainer.style.display = 'flex';
             analyzeButton.disabled = true;
             offerTextarea.disabled = true;
 
-            // Clear previous results and errors
             resultDiv.innerHTML = '';
             resultDiv.style.display = 'none';
             errorDiv.style.display = 'none';
@@ -210,74 +370,69 @@ document.addEventListener('DOMContentLoaded', () => {
             sarcasticResultDiv.style.display = 'none';
             sarcasticErrorDiv.style.display = 'none';
             
-            // Show loading indicators
             loadingDiv.style.display = 'flex';
-            sarcasticLoadingDiv.style.display = 'flex'; // Show both initially
+            sarcasticLoadingDiv.style.display = 'flex';
 
-            const currentFormalTitle = FORMAL_PANEL_TITLES[Math.floor(Math.random() * FORMAL_PANEL_TITLES.length)];
-            formalOutputLabel.textContent = currentFormalTitle;
-            sarcasticOutputLabel.textContent = SARCASTIC_PANEL_TITLES_DEFAULT[Math.floor(Math.random() * SARCASTIC_PANEL_TITLES_DEFAULT.length)];
+            const currentFormalTitle = T.FORMAL_PANEL_TITLES[Math.floor(Math.random() * T.FORMAL_PANEL_TITLES.length)];
+            formalOutputLabelElement.textContent = currentFormalTitle;
+            sarcasticOutputLabelElement.textContent = T.SARCASTIC_PANEL_TITLES_DEFAULT[Math.floor(Math.random() * T.SARCASTIC_PANEL_TITLES_DEFAULT.length)];
 
-            let formalAnalysisText = ''; // Will store the raw text from formal analysis
-            let parsedScore: number | null = null;
+            let formalAnalysisText = '';
+            let parsedScoreVal: number | null = null;
 
             try {
-                // --- 1. Formal Analysis ---
-                const formalPrompt = `${PROMPT_TEMPLATE_HEADER}${offerText}${PROMPT_TEMPLATE_FOOTER}`;
+                const formalPrompt = `${T.PROMPT_TEMPLATE_HEADER}${offerText}${T.PROMPT_TEMPLATE_FOOTER}`;
                 try {
                     const formalResponse: GenerateContentResponse = await ai!.models.generateContent({
                         model: GEMINI_MODEL,
                         contents: formalPrompt,
                     });
-                    formalAnalysisText = formalResponse.text || ''; // Store raw text
+                    formalAnalysisText = formalResponse.text || '';
                     const htmlContent = markdownConverter.makeHtml(formalAnalysisText);
                     resultDiv.innerHTML = htmlContent;
                     resultDiv.style.display = 'block';
 
-                    parsedScore = parseScore(formalAnalysisText);
-                    if (parsedScore !== null) {
-                        formalOutputLabel.textContent = `${currentFormalTitle} (${parsedScore}/10)`;
+                    parsedScoreVal = parseScore(formalAnalysisText);
+                    if (parsedScoreVal !== null) {
+                        formalOutputLabelElement.textContent = `${currentFormalTitle} (${parsedScoreVal}/10)`;
                     } else {
-                        formalOutputLabel.textContent = currentFormalTitle; // Keep original title if score parsing fails
+                         formalOutputLabelElement.textContent = currentFormalTitle;
                     }
                 } catch (formalApiError: any) {
-                    console.error('Ошибка при вызове Gemini API для формального анализа:', formalApiError);
-                    let errorMessage = 'Произошла ошибка при формальном анализе оффера.';
+                    console.error('Gemini API error (formal analysis):', formalApiError);
+                    let errorMessage = T.ERROR_FORMAL_API_BASE;
                     if (formalApiError && formalApiError.message) {
-                        errorMessage += ` Детали: ${formalApiError.message}`;
+                        errorMessage += ` Details: ${formalApiError.message}`;
                     }
                     errorDiv.textContent = errorMessage;
                     errorDiv.style.display = 'block';
 
-                    // Update sarcastic panel to indicate it won't run
-                    sarcasticOutputLabel.textContent = "Саркастический анализ отменен";
-                    sarcasticResultDiv.innerHTML = '<p>Формальный анализ не был успешно завершен, поэтому саркастический анализ не может быть выполнен.</p>';
+                    sarcasticOutputLabelElement.textContent = T.SARCASTIC_ANALYSIS_CANCELLED_TITLE;
+                    sarcasticResultDiv.innerHTML = `<p>${T.SARCASTIC_ANALYSIS_CANCELLED_MSG}</p>`;
                     sarcasticResultDiv.style.display = 'block';
                     sarcasticErrorDiv.style.display = 'none';
-                    sarcasticLoadingDiv.style.display = 'none'; // Hide sarcastic loading
-                    throw formalApiError; // Propagate to outer catch to skip sarcastic analysis
+                    sarcasticLoadingDiv.style.display = 'none';
+                    throw formalApiError; 
                 } finally {
-                    loadingDiv.style.display = 'none'; // Hide formal loading indicator
+                    loadingDiv.style.display = 'none';
                 }
 
-                // --- 2. Sarcastic Analysis (only if formal analysis succeeded) ---
-                // Update sarcastic title based on score
-                if (parsedScore !== null) {
-                    if (parsedScore <= 3) {
-                        sarcasticOutputLabel.textContent = SARCASTIC_PANEL_TITLES_LOW_SCORE[Math.floor(Math.random() * SARCASTIC_PANEL_TITLES_LOW_SCORE.length)];
-                    } else if (parsedScore <= 6) {
-                        sarcasticOutputLabel.textContent = SARCASTIC_PANEL_TITLES_MID_SCORE[Math.floor(Math.random() * SARCASTIC_PANEL_TITLES_MID_SCORE.length)];
+                if (parsedScoreVal !== null) {
+                    if (parsedScoreVal <= 3) {
+                        sarcasticOutputLabelElement.textContent = T.SARCASTIC_PANEL_TITLES_LOW_SCORE[Math.floor(Math.random() * T.SARCASTIC_PANEL_TITLES_LOW_SCORE.length)];
+                    } else if (parsedScoreVal <= 6) {
+                        sarcasticOutputLabelElement.textContent = T.SARCASTIC_PANEL_TITLES_MID_SCORE[Math.floor(Math.random() * T.SARCASTIC_PANEL_TITLES_MID_SCORE.length)];
                     } else {
-                        sarcasticOutputLabel.textContent = SARCASTIC_PANEL_TITLES_HIGH_SCORE[Math.floor(Math.random() * SARCASTIC_PANEL_TITLES_HIGH_SCORE.length)];
+                        sarcasticOutputLabelElement.textContent = T.SARCASTIC_PANEL_TITLES_HIGH_SCORE[Math.floor(Math.random() * T.SARCASTIC_PANEL_TITLES_HIGH_SCORE.length)];
                     }
-                } // else, it keeps the default title set earlier
+                }
 
                 const sarcasticPrompt = 
-                    `${PROMPT_SARCASTIC_ANALYST_INTRO}` +
-                    `${PROMPT_SARCASTIC_ANALYST_OFFER_TEXT_LABEL}${offerText}` +
-                    `${PROMPT_SARCASTIC_ANALYST_FORMAL_ANALYSIS_LABEL}${formalAnalysisText}` + // Pass formal analysis text
-                    `${PROMPT_SARCASTIC_ANALYST_INSTRUCTION_AFTER_INPUTS}` +
-                    `${PROMPT_SARCASTIC_ANALYST_FOOTER}`;
+                    `${T.PROMPT_SARCASTIC_ANALYST_INTRO}` +
+                    `${T.PROMPT_SARCASTIC_ANALYST_OFFER_TEXT_LABEL}${offerText}` +
+                    `${T.PROMPT_SARCASTIC_ANALYST_FORMAL_ANALYSIS_LABEL}${formalAnalysisText}` +
+                    `${T.PROMPT_SARCASTIC_ANALYST_INSTRUCTION_AFTER_INPUTS}` +
+                    `${T.PROMPT_SARCASTIC_ANALYST_FOOTER}`;
 
                 try {
                     const sarcasticResponse: GenerateContentResponse = await ai!.models.generateContent({
@@ -289,30 +444,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     sarcasticResultDiv.innerHTML = htmlContent;
                     sarcasticResultDiv.style.display = 'block';
                 } catch (sarcasticApiError: any) {
-                    console.error('Ошибка при вызове Gemini API для саркастического анализа:', sarcasticApiError);
-                    let errorMessage = 'Произошла ошибка при саркастическом анализе оффера.';
+                    console.error('Gemini API error (sarcastic analysis):', sarcasticApiError);
+                    let errorMessage = T.ERROR_SARCASTIC_API_BASE;
                      if (sarcasticApiError && sarcasticApiError.message) {
-                        errorMessage += ` Детали: ${sarcasticApiError.message}`;
+                        errorMessage += ` Details: ${sarcasticApiError.message}`;
                     }
                     sarcasticErrorDiv.textContent = errorMessage;
                     sarcasticErrorDiv.style.display = 'block';
                 } finally {
-                    sarcasticLoadingDiv.style.display = 'none'; // Hide sarcastic loading indicator
+                    sarcasticLoadingDiv.style.display = 'none';
                 }
 
             } catch (e: any) { 
-                // This catches errors re-thrown from formal analysis, or other unexpected errors
-                console.error('Непредвиденная ошибка в процессе последовательного анализа:', e);
-                // If formal error div is not already displaying a message, show a general one.
-                if (errorDiv.style.display === 'none') {
-                    const generalErrorMessage = 'Произошла непредвиденная ошибка. Пожалуйста, попробуйте еще раз.';
-                    errorDiv.textContent = generalErrorMessage;
+                console.error('Unexpected error during sequential analysis:', e);
+                if (errorDiv.style.display === 'none') { // Only show if not already shown by formal analysis error
+                    errorDiv.textContent = T.ERROR_UNEXPECTED;
                     errorDiv.style.display = 'block';
                 }
-                // Ensure sarcastic loading is hidden if an error occurred that prevented its explicit hiding
                 sarcasticLoadingDiv.style.display = 'none';
             } finally {
-                // Ensure all loading indicators are hidden and inputs are re-enabled
                 loadingDiv.style.display = 'none';
                 sarcasticLoadingDiv.style.display = 'none';
                 analyzeButton.disabled = false;
@@ -320,16 +470,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     } else {
-        console.error('Не удалось найти необходимые DOM элементы для одного или обоих анализаторов.');
-        const initErrorMessage = 'Ошибка инициализации приложения: не найдены ключевые элементы страницы для одного или обоих анализаторов.';
+        console.error('Failed to find necessary DOM elements for one or both analyzers.');
         if (resultsContainer) resultsContainer.style.display = 'block'; 
-        if (formalOutputLabel) formalOutputLabel.textContent = 'Ошибка инициализации';
-        if (sarcasticOutputLabel) sarcasticOutputLabel.style.display = 'none';
-        if (globalErrorDiv) { // globalErrorDiv is an alias for errorDiv, check if it's the target for general init error.
-            globalErrorDiv.textContent = initErrorMessage;
+        if (formalOutputLabelElement) formalOutputLabelElement.textContent = T.ERROR_INIT_FAILED.split(':')[0];
+        if (sarcasticOutputLabelElement) sarcasticOutputLabelElement.style.display = 'none';
+        if (globalErrorDiv) {
+            globalErrorDiv.textContent = T.ERROR_INIT_FAILED;
             globalErrorDiv.style.display = 'block';
         } else {
-            alert(initErrorMessage);
+            alert(T.ERROR_INIT_FAILED);
         }
         if(loadingDiv) loadingDiv.style.display = 'none';
         if(sarcasticLoadingDiv) sarcasticLoadingDiv.style.display = 'none';

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru"> <!-- Default lang, will be updated by JS -->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Разводк-О-Мат v3.1</title>
+    <title>Разводк-О-Мат v3.2</title> <!-- Will be updated by JS -->
     <link rel="stylesheet" href="index.css">
     <script type="module" src="index.tsx"></script>
 <script type="importmap">
@@ -14,37 +14,38 @@
   }
 }
 </script>
+<link rel="stylesheet" href="/index.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1 id="appTitle">Разводк-О-Мат v3.1</h1>
-            <p>Последовательный анализ сомнительных офферов: формальная оценка и саркастический комментарий.</p>
+            <h1 id="appTitle">Разводк-О-Мат v3.2</h1> <!-- Will be updated by JS -->
+            <p id="appSubtitle">Последовательный анализ сомнительных офферов: формальная оценка и саркастический комментарий.</p> <!-- Will be updated by JS -->
         </header>
         <main>
             <section class="input-section" aria-labelledby="input-label">
-                <h2 id="input-label" class="sr-only">Ввод текста оффера</h2>
-                <label for="offerText">Введите текст оффера или коммерческого предложения для анализа:</label>
-                <textarea id="offerText" rows="10" placeholder="Вставьте сюда текст оффера..." aria-label="Текст оффера для анализа"></textarea>
-                <button id="analyzeButton" aria-label="Начать анализ оффера">Анализировать</button>
+                <h2 id="input-label" class="sr-only">Ввод текста оффера</h2> <!-- Will be updated by JS -->
+                <label for="offerText" id="offerTextLabel">Введите текст оффера или коммерческого предложения для анализа:</label> <!-- Will be updated by JS -->
+                <textarea id="offerText" rows="10" placeholder="Вставьте сюда текст оффера..." aria-label="Текст оффера для анализа"></textarea> <!-- Placeholder and aria-label will be updated by JS -->
+                <button id="analyzeButton" aria-label="Начать анализ оффера">Анализировать</button> <!-- Text and aria-label will be updated by JS -->
             </section>
 
             <div class="results-container" style="display: none;">
                 <section class="output-section result-panel" aria-labelledby="formal-output-label">
-                    <h2 id="formal-output-label" class="panel-title">Формальный анализ</h2>
+                    <h2 id="formal-output-label" class="panel-title">Формальный анализ</h2> <!-- Will be updated by JS -->
                     <div id="loading" class="loading-indicator" role="status" aria-live="polite" style="display: none;">
                         <div class="spinner"></div>
-                        Анализирую... Пожалуйста, подождите.
+                        <span id="loadingFormalText">Анализирую... Пожалуйста, подождите.</span> <!-- Will be updated by JS -->
                     </div>
                     <div id="error" class="error-message" role="alert" aria-live="assertive" style="display: none;"></div>
                     <div id="result" class="result-content" aria-live="polite" style="display: none;"></div>
                 </section>
 
                 <section class="output-section result-panel" aria-labelledby="sarcastic-output-label">
-                    <h2 id="sarcastic-output-label" class="panel-title">Саркастический комментарий</h2>
+                    <h2 id="sarcastic-output-label" class="panel-title">Саркастический комментарий</h2> <!-- Will be updated by JS -->
                     <div id="sarcasticLoading" class="loading-indicator" role="status" aria-live="polite" style="display: none;">
                         <div class="spinner"></div>
-                        Саркастический ум размышляет...
+                        <span id="loadingSarcasticText">Саркастический ум размышляет...</span> <!-- Will be updated by JS -->
                     </div>
                     <div id="sarcasticError" class="error-message" role="alert" aria-live="assertive" style="display: none;"></div>
                     <div id="sarcasticResult" class="result-content" aria-live="polite" style="display: none;"></div>
@@ -52,9 +53,9 @@
             </div>
         </main>
         <footer>
-            <p>&copy; 2024 Разводк-О-Мат v3.1. Все права защищены (но это не точно).</p>
+            <p id="footerText">&copy; 2024 Разводк-О-Мат v3.2. Все права защищены (но это не точно).</p> <!-- Will be updated by JS -->
         </footer>
     </div>
+<script type="module" src="/index.tsx"></script>
 </body>
-</html><link rel="stylesheet" href="index.css">
-<script src="index.tsx" type="module"></script>
+</html>
