@@ -8,7 +8,7 @@ import showdown from 'showdown';
 // --- START INTERNATIONALIZATION (I18N) ---
 const translations = {
     ru: {
-        APP_TITLE: "Разводк-О-Мат v3.2",
+        APP_TITLE: "Разводк-О-Мат v3.3",
         PAGE_SUBTITLE: "Последовательный анализ сомнительных офферов: формальная оценка и саркастический комментарий.",
         INPUT_SECTION_SR_LABEL: "Ввод текста оффера",
         INPUT_LABEL: "Введите текст оффера или коммерческого предложения для анализа:",
@@ -28,7 +28,7 @@ const translations = {
         ERROR_UNEXPECTED: "Произошла непредвиденная ошибка. Пожалуйста, попробуйте еще раз.",
         SARCASTIC_ANALYSIS_CANCELLED_MSG: "Формальный анализ не был успешно завершен, поэтому саркастический анализ не может быть выполнен.",
         SARCASTIC_ANALYSIS_CANCELLED_TITLE: "Саркастический анализ отменен",
-        FOOTER_TEXT: "&copy; 2024 Разводк-О-Мат v3.2. Все права защищены (но это не точно).",
+        FOOTER_TEXT: "&copy; 2024 Разводк-О-Мат v3.3. Все права защищены (но это не точно).",
         SCORE_LINE_PREFIX: "Оценка Разводк-О-Мат:",
         SCORE_REGEX_PATTERN: "^Оценка Разводк-О-Мат:\\s*(\\d+)\\/10",
         PROMPT_TEMPLATE_HEADER: `Ты выступаешь в роли ассистента "Разводк-О-Мат", созданного для анализа коммерческих предложений, инвестиционных офферов и авторских курсов с точки зрения:
@@ -63,6 +63,8 @@ const translations = {
 Обязательно укажи **маркер риска** (например: ⚠️ Высокий риск, ✅ Низкий риск, ❗ Средний риск).
 
 Не используй сарказм и переход на личности. Стиль — аналитический, прямой, деловой.
+
+**Важно**: Отвечай на том же языке, на котором написан анализируемый текст оффера.
 
 Ответ должен включать:
 0. **Первой строкой ответа ОБЯЗАТЕЛЬНО выведи**: "Оценка Разводк-О-Мат: X/10" (где X — **целочисленная** итоговая оценка доверия **от 0 до 10**).
@@ -108,6 +110,8 @@ const translations = {
 
 Избегай общих фраз, отвечай по существу.
 Ответ должен быть в текстовом формате, можно использовать markdown для списков или выделения.
+
+**Ключевое требование**: Всегда отвечай на том же языке, на котором написан анализируемый текст оффера.
 `,
         FORMAL_PANEL_TITLES: ["Анализ документа", "Экспертная оценка", "Формальное заключение", "Разбор по существу", "Результаты анализа", "Аналитический отчет"],
         SARCASTIC_PANEL_TITLES_LOW_SCORE: ["Тревожный звоночек!", "Осторожно, минное поле!", "Здесь пахнет разводом!", "Держите кошелек покрепче!", "Сигнал 'SOS' для вашего бюджета"],
@@ -116,7 +120,7 @@ const translations = {
         SARCASTIC_PANEL_TITLES_DEFAULT: ["Мнение (очень) частного лица", "Как я это вижу", "Пара мыслей вслух", "Без протокола", "Комментарий циника"],
     },
     en: {
-        APP_TITLE: "Scam-O-Mat v3.2",
+        APP_TITLE: "Scam-O-Mat v3.3",
         PAGE_SUBTITLE: "Sequential analysis of dubious offers: formal assessment and sarcastic commentary.",
         INPUT_SECTION_SR_LABEL: "Offer Text Input",
         INPUT_LABEL: "Enter the text of the offer or commercial proposal for analysis:",
@@ -136,7 +140,7 @@ const translations = {
         ERROR_UNEXPECTED: "An unexpected error occurred. Please try again.",
         SARCASTIC_ANALYSIS_CANCELLED_MSG: "Formal analysis was not successfully completed, so sarcastic analysis cannot be performed.",
         SARCASTIC_ANALYSIS_CANCELLED_TITLE: "Sarcastic Analysis Cancelled",
-        FOOTER_TEXT: "&copy; 2024 Scam-O-Mat v3.2. All rights reserved (but not really).",
+        FOOTER_TEXT: "&copy; 2024 Scam-O-Mat v3.3. All rights reserved (but not really).",
         SCORE_LINE_PREFIX: "Scam-O-Mat Score:",
         SCORE_REGEX_PATTERN: "^Scam-O-Mat Score:\\s*(\\d+)\\/10",
         PROMPT_TEMPLATE_HEADER: `You are an assistant "Scam-O-Mat", designed to analyze commercial proposals, investment offers, and author courses from the perspective of:
@@ -171,6 +175,8 @@ Then, provide a **final trust score (0–10)** and output a **recommendation**:
 Be sure to indicate a **risk marker** (e.g., ⚠️ High risk, ✅ Low risk, ❗ Medium risk).
 
 Do not use sarcasm or personal attacks. Style — analytical, direct, business-like.
+
+**Important**: Respond in the same language as the analyzed offer text.
 
 The response must include:
 0. **The first line of the response MUST BE**: "Scam-O-Mat Score: X/10" (where X is an **integer** final trust score **from 0 to 10**).
@@ -216,6 +222,8 @@ If the text looks particularly suspicious and resembles known deception schemes,
 
 Avoid general phrases, answer to the point.
 The response should be in text format; markdown can be used for lists or emphasis.
+
+**Key requirement**: Always respond in the same language as the analyzed offer text.
 `,
         FORMAL_PANEL_TITLES: ["Document Analysis", "Expert Assessment", "Formal Conclusion", "Substantive Review", "Analysis Results", "Analytical Report"],
         SARCASTIC_PANEL_TITLES_LOW_SCORE: ["Red Flag Alert!", "Warning: Minefield!", "Something Smells Fishy!", "Hold On To Your Wallet!", "SOS for Your Budget"],
