@@ -251,7 +251,7 @@ if (API_KEY) {
     ai = new GoogleGenAI({ apiKey: API_KEY });
 }
 
-const GEMINI_MODEL = 'gemini-2.5-flash-preview-04-17';
+const GEMINI_MODEL = 'gemini-2.5-flash';
 
 function parseScore(responseText: string): number | null {
     if (!responseText) return null;
