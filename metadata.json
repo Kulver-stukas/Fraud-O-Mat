@@ -1,6 +1,6 @@
 {
-  "name": "Разводк-О-Мат v3.3",
-  "description": "Разводк-О-Мат v3.3: Веб-приложение для последовательного анализа коммерческих предложений. Сначала проводится формальная оценка, затем, на ее основе, саркастический разбор с учетом результатов первого анализа. Модель отвечает на языке ввода.",
+  "name": "Fraud-O-Mat v3.4",
+  "description": "Two-stage criticism of questionable offers: transparent heuristic risk indicators followed by satirical commentary. Russian/English, server-side Gemini, shared free-tier quota.",
   "requestFramePermissions": [],
   "prompt": ""
 }
