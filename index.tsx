@@ -1,494 +1,580 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
-import showdown from 'showdown';
+import "./index.css";
+import type { AnalysisReport, CriterionId, Locale, QuotaStatus, Tone } from "./shared/types";
 
-// --- START INTERNATIONALIZATION (I18N) ---
-const translations = {
-    ru: {
-        APP_TITLE: "Разводк-О-Мат v3.3",
-        PAGE_SUBTITLE: "Последовательный анализ сомнительных офферов: формальная оценка и саркастический комментарий.",
-        INPUT_SECTION_SR_LABEL: "Ввод текста оффера",
-        INPUT_LABEL: "Введите текст оффера или коммерческого предложения для анализа:",
-        TEXTAREA_PLACEHOLDER: "Вставьте сюда текст оффера...",
-        TEXTAREA_ARIA_LABEL: "Текст оффера для анализа",
-        ANALYZE_BUTTON: "Анализировать",
-        ANALYZE_BUTTON_ARIA_LABEL: "Начать анализ оффера",
-        FORMAL_PANEL_DEFAULT_TITLE: "Формальный анализ",
-        SARCASTIC_PANEL_DEFAULT_TITLE: "Саркастический комментарий",
-        LOADING_FORMAL: "Анализирую... Пожалуйста, подождите.",
-        LOADING_SARCASTIC: "Саркастический ум размышляет...",
-        ERROR_INPUT_EMPTY: "Пожалуйста, введите текст оффера для анализа.",
-        ERROR_CONFIG: "Ошибка конфигурации: API ключ не найден или недействителен. Пожалуйста, убедитесь, что API_KEY установлен в переменных окружения и действителен.",
-        ERROR_INIT_FAILED: "Ошибка инициализации приложения: не найдены ключевые элементы страницы для одного или обоих анализаторов.",
-        ERROR_FORMAL_API_BASE: "Произошла ошибка при формальном анализе оффера.",
-        ERROR_SARCASTIC_API_BASE: "Произошла ошибка при саркастическом анализе оффера.",
-        ERROR_UNEXPECTED: "Произошла непредвиденная ошибка. Пожалуйста, попробуйте еще раз.",
-        SARCASTIC_ANALYSIS_CANCELLED_MSG: "Формальный анализ не был успешно завершен, поэтому саркастический анализ не может быть выполнен.",
-        SARCASTIC_ANALYSIS_CANCELLED_TITLE: "Саркастический анализ отменен",
-        FOOTER_TEXT: "&copy; 2024 Разводк-О-Мат v3.3. Все права защищены (но это не точно).",
-        SCORE_LINE_PREFIX: "Оценка Разводк-О-Мат:",
-        SCORE_REGEX_PATTERN: "^Оценка Разводк-О-Мат:\\s*(\\d+)\\/10",
-        PROMPT_TEMPLATE_HEADER: `Ты выступаешь в роли ассистента "Разводк-О-Мат", созданного для анализа коммерческих предложений, инвестиционных офферов и авторских курсов с точки зрения:
-- этичности,
-- прозрачности бизнес-модели,
-- манипулятивных приёмов,
-- реализуемости заявленных выгод,
-- и вероятного распределения рисков и доходов.
-
-Проанализируй следующий текст оффера:
-"""
-`,
-        PROMPT_TEMPLATE_FOOTER: `
-"""
-
-Применяй следующие **6 критериев оценки** (по шкале от 0 до 3):
-1. **Прозрачность модели** — как чётко и честно описано, откуда берётся доход, как окупается участие.
-2. **Оценка риска** — есть ли реальные потери у участника, если гипотезы автора не сработают.
-3. **Маскировка продаж** — использует ли автор дружелюбный нарратив вместо чёткой сделки.
-4. **Манипуляции и нажим** — ограниченность времени, эмоциональные крючки, навязывание вины.
-5. **Ценностное наполнение** — передаётся ли реальный навык, опыт, продукт или только образы и обещания.
-6. **Распределение выгод** — кому реально достаётся ценность, возможен ли эффект zero-sum.
-
-**Выведи таблицу** с краткими оценками по каждому критерию и пояснением. Форматируй таблицу используя markdown.
-
-Затем подведи **итоговую оценку доверия (0–10)** и выведи **рекомендацию**:
-- Игнорировать
-- С осторожностью
-- Переговоры возможны
-- Надежно
-
-Обязательно укажи **маркер риска** (например: ⚠️ Высокий риск, ✅ Низкий риск, ❗ Средний риск).
-
-Не используй сарказм и переход на личности. Стиль — аналитический, прямой, деловой.
-
-**Важно**: Отвечай на том же языке, на котором написан анализируемый текст оффера.
-
-Ответ должен включать:
-0. **Первой строкой ответа ОБЯЗАТЕЛЬНО выведи**: "Оценка Разводк-О-Мат: X/10" (где X — **целочисленная** итоговая оценка доверия **от 0 до 10**).
-1. Диагностику по 6 критериям (в виде markdown таблицы)
-2. Пояснение к итоговой оценке (сама оценка выведена отдельной первой строкой).
-3. Маркер риска (⚠️ / ✅ / ❗)
-4. Рекомендацию
-`,
-        PROMPT_SARCASTIC_ANALYST_INTRO: `Ты — аналитик манипулятивных маркетинговых схем, циничный и остроумный, но без явных обвинений в мошенничестве. Твоя задача — вскрывать риторические уловки, маркетинговую демагогию, завуалированные схемы привлечения денег и сомнительные способы убеждения.
-`,
-        PROMPT_SARCASTIC_ANALYST_OFFER_TEXT_LABEL: `
-Ты анализируешь следующий **исходный текст оффера**:
-"""
-`,
-        PROMPT_SARCASTIC_ANALYST_FORMAL_ANALYSIS_LABEL: `
-"""
-
-При этом, **учитывай следующий предварительный формальный анализ**, но НЕ ПОВТОРЯЙ его выводы, а используй для более глубокого саркастического комментария:
-"""
-`,
-        PROMPT_SARCASTIC_ANALYST_INSTRUCTION_AFTER_INPUTS: `
-"""
-
-Твой анализ должен быть основан на **исходном тексте оффера**, но с учетом данных из формального анализа.
-`,
-        PROMPT_SARCASTIC_ANALYST_FOOTER: `
-При этом:
-- Не используешь слово "scam", "fraud", "мошенничество".
-- Говоришь как бы "между строк", с умной иронией.
-- Показываешь, какие приёмы используются: FOMO, social proof, authority bias, obfuscated pricing, emotional pressure и т.п.
-- Не даёшь юридических советов, но оцениваешь **логическую убедительность** и **маркетинговую этичность**.
-
-Говори кратко, с долей сарказма. Ориентир — рецензия опытного маркетолога, ушедшего в индустрию после серии разочарований.
-
-Всегда отвечай в структуре:
-1. Краткий вердикт (одно-два предложения).
-2. Главные триггеры / приёмы.
-3. Вывод о соотношении риска и пользы.
-
-Если текст прозрачен и честен — так и скажи: "Редкий случай — здесь всё открыто и честно. Похвально."
-
-Если текст выглядит особенно подозрительно и напоминает известные схемы обмана, не стесняйся предложить меткую историческую или культурную аналогию (например, "классическая инфоцыганская воронка 2010-х", "в духе великих комбинаторов" или "старые песни о главном от мира финансов"). Делай это остроумно и к месту.
-
-Избегай общих фраз, отвечай по существу.
-Ответ должен быть в текстовом формате, можно использовать markdown для списков или выделения.
-
-**Ключевое требование**: Всегда отвечай на том же языке, на котором написан анализируемый текст оффера.
-`,
-        FORMAL_PANEL_TITLES: ["Анализ документа", "Экспертная оценка", "Формальное заключение", "Разбор по существу", "Результаты анализа", "Аналитический отчет"],
-        SARCASTIC_PANEL_TITLES_LOW_SCORE: ["Тревожный звоночек!", "Осторожно, минное поле!", "Здесь пахнет разводом!", "Держите кошелек покрепче!", "Сигнал 'SOS' для вашего бюджета"],
-        SARCASTIC_PANEL_TITLES_MID_SCORE: ["Скептический взгляд", "Есть нюансы...", "Не всё так гладко", "Под лупой сарказма", "Читаем между строк"],
-        SARCASTIC_PANEL_TITLES_HIGH_SCORE: ["Ну, допустим...", "Почти без подвоха?", "Удивили (не сарказм)", "Можно рассмотреть... с опаской", "Неожиданно достойно"],
-        SARCASTIC_PANEL_TITLES_DEFAULT: ["Мнение (очень) частного лица", "Как я это вижу", "Пара мыслей вслух", "Без протокола", "Комментарий циника"],
+const TRANSLATIONS = {
+  ru: {
+    slogan: "Анализируем громкие обещания. Иронизируем. Помогаем думать.",
+    analyses: "Бесплатные анализы",
+    reset: "Сброс квоты",
+    connecting: "OpenRouter — скоро",
+    connectSub: "Личные квоты в следующей версии",
+    inputHeading: "Вставьте текст для анализа",
+    examples: "Примеры:",
+    tabs: ["Текст", "URL · скоро", "Файл · скоро"],
+    placeholder: "Вставьте сюда рекламный текст, коммерческое предложение или письмо, которое обещает слишком много...",
+    privacyTitle: "Конфиденциальность",
+    privacy: "Не отправляйте личные данные, платёжные реквизиты и коммерческие тайны. Текст будет обработан провайдером модели.",
+    analyze: "Анализировать",
+    busy: "Анализируем...",
+    sampleNames: ["Криптокурс", "Инвестпроект", "Фитнес-челлендж", "Честный стартап"],
+    result: "Результат",
+    copy: "Копировать отчёт",
+    demo: "Пример результата — без обращения к API",
+    live: "Результат анализа",
+    formalHeading: "Аналитический разбор",
+    formalSub: "Шесть критериев, оценки по тексту и основания выводов",
+    satireHeading: "Сатирический комментарий",
+    satireSub: "Те же факты, но без рекламного оптимизма",
+    heuristic: "Индекс красных флагов",
+    level: ["Низкий", "Умеренный", "Высокий"],
+    recommendation: "Вывод и рекомендация",
+    caveat: "Ограничение оценки:",
+    note: "Эвристический индекс по представленному тексту; не доказательство мошенничества.",
+    observations: "Особенно примечательно",
+    tone: "Стиль комментария",
+    tones: ["Мягкий", "Классический", "Жёсткий"],
+    toneHint: "Выбранный стиль применяется при следующем анализе.",
+    footer: "Fraud-O-Mat не проверяет факты независимо и не даёт юридических заключений.",
+    quotaPending: "Загрузка квоты...",
+    quotaNotReady: "Общая квота ещё не настроена",
+    quotaFailure: "Не удалось загрузить квоту",
+    remaining: "осталось",
+    empty: "Введите текст предложения.",
+    tooLong: "Текст превышает лимит 20 000 символов.",
+    exhausted: "Общая квота на сегодня исчерпана.",
+    error: "Не удалось завершить анализ. Попробуйте позже.",
+    errors: {
+      MODEL_RATE_LIMIT: "Лимит Gemini временно исчерпан. Повторите запрос позже.",
+      QUOTA_EXHAUSTED: "Лимит бесплатных анализов на сегодня исчерпан.",
+      QUOTA_NOT_CONFIGURED: "Серверный счётчик квоты пока не подключён.",
+      MODEL_NOT_CONFIGURED: "Серверная модель не настроена.",
+      QUOTA_UNAVAILABLE: "Счётчик квоты временно недоступен.",
+      ANALYSIS_FAILED: "Модель вернула ошибку или некорректный формат ответа.",
     },
-    en: {
-        APP_TITLE: "Scam-O-Mat v3.3",
-        PAGE_SUBTITLE: "Sequential analysis of dubious offers: formal assessment and sarcastic commentary.",
-        INPUT_SECTION_SR_LABEL: "Offer Text Input",
-        INPUT_LABEL: "Enter the text of the offer or commercial proposal for analysis:",
-        TEXTAREA_PLACEHOLDER: "Paste the offer text here...",
-        TEXTAREA_ARIA_LABEL: "Offer text for analysis",
-        ANALYZE_BUTTON: "Analyze",
-        ANALYZE_BUTTON_ARIA_LABEL: "Start offer analysis",
-        FORMAL_PANEL_DEFAULT_TITLE: "Formal Analysis",
-        SARCASTIC_PANEL_DEFAULT_TITLE: "Sarcastic Commentary",
-        LOADING_FORMAL: "Analyzing... Please wait.",
-        LOADING_SARCASTIC: "Sarcastic mind at work...",
-        ERROR_INPUT_EMPTY: "Please enter the offer text for analysis.",
-        ERROR_CONFIG: "Configuration error: API key not found or invalid. Please ensure API_KEY is set in environment variables and is valid.",
-        ERROR_INIT_FAILED: "Application initialization error: key page elements for one or both analyzers were not found.",
-        ERROR_FORMAL_API_BASE: "An error occurred during the formal analysis of the offer.",
-        ERROR_SARCASTIC_API_BASE: "An error occurred during the sarcastic analysis of the offer.",
-        ERROR_UNEXPECTED: "An unexpected error occurred. Please try again.",
-        SARCASTIC_ANALYSIS_CANCELLED_MSG: "Formal analysis was not successfully completed, so sarcastic analysis cannot be performed.",
-        SARCASTIC_ANALYSIS_CANCELLED_TITLE: "Sarcastic Analysis Cancelled",
-        FOOTER_TEXT: "&copy; 2024 Scam-O-Mat v3.3. All rights reserved (but not really).",
-        SCORE_LINE_PREFIX: "Scam-O-Mat Score:",
-        SCORE_REGEX_PATTERN: "^Scam-O-Mat Score:\\s*(\\d+)\\/10",
-        PROMPT_TEMPLATE_HEADER: `You are an assistant "Scam-O-Mat", designed to analyze commercial proposals, investment offers, and author courses from the perspective of:
-- ethics,
-- transparency of the business model,
-- manipulative techniques,
-- feasibility of the stated benefits,
-- and a likely distribution of risks and income.
+    copied: "Скопировано",
+    copyError: "Не удалось скопировать",
+    criteria: {
+      transparency: ["Прозрачность модели", "Кто, что и на каких условиях предлагает"],
+      participant_risk: ["Риски участника", "Что произойдёт, если обещания не сбудутся"],
+      disguised_sales: ["Маскировка продаж", "Насколько прямо обозначена сделка"],
+      pressure: ["Давление и срочность", "Дедлайны, дефицит, эмоциональный нажим"],
+      value: ["Содержательная ценность", "Есть ли проверяемый продукт или результат"],
+      distribution: ["Распределение выгод", "Кто получает выгоду и несёт риск"],
+    },
+  },
+  en: {
+    slogan: "We examine big promises. We add irony. You decide.",
+    analyses: "Free analyses",
+    reset: "Quota resets",
+    connecting: "OpenRouter — coming soon",
+    connectSub: "Personal quotas in a later version",
+    inputHeading: "Paste an offer to analyze",
+    examples: "Examples:",
+    tabs: ["Text", "URL · later", "File · later"],
+    placeholder: "Paste an ad, offer, commercial proposal or email that promises rather too much...",
+    privacyTitle: "Privacy",
+    privacy: "Do not submit personal data, payment details or confidential business information. Your text is processed by the model provider.",
+    analyze: "Analyze",
+    busy: "Analyzing...",
+    sampleNames: ["Crypto course", "Investment pitch", "Fitness challenge", "Honest startup"],
+    result: "Result",
+    copy: "Copy report",
+    demo: "Sample report — no API calls",
+    live: "Generated report",
+    formalHeading: "Formal analysis",
+    formalSub: "Six criteria, text-based scores and supporting evidence",
+    satireHeading: "Satirical commentary",
+    satireSub: "The same material, with rather less marketing optimism",
+    heuristic: "Red flag index",
+    level: ["Low", "Moderate", "High"],
+    recommendation: "Conclusion and recommendation",
+    caveat: "Assessment limits:",
+    note: "A heuristic index based on the submitted text, not evidence of fraud.",
+    observations: "Especially noteworthy",
+    tone: "Satire style",
+    tones: ["Gentle", "Classic", "Sharp"],
+    toneHint: "Your selected style will apply to the next analysis.",
+    footer: "Fraud-O-Mat does not independently verify facts or provide legal opinions.",
+    quotaPending: "Loading quota...",
+    quotaNotReady: "Shared quota has not been configured",
+    quotaFailure: "Could not load quota",
+    remaining: "left",
+    empty: "Enter the text of an offer.",
+    tooLong: "The text exceeds 20,000 characters.",
+    exhausted: "Today's free quota has been exhausted.",
+    error: "Could not finish the analysis. Please try again later.",
+    errors: {
+      MODEL_RATE_LIMIT: "Gemini's limit has been reached. Please try later.",
+      QUOTA_EXHAUSTED: "Today's free report quota has been exhausted.",
+      QUOTA_NOT_CONFIGURED: "The shared quota store has not yet been configured.",
+      MODEL_NOT_CONFIGURED: "The model has not yet been configured on the server.",
+      QUOTA_UNAVAILABLE: "The quota service is temporarily unavailable.",
+      ANALYSIS_FAILED: "The model failed or returned an invalid response.",
+    },
+    copied: "Copied",
+    copyError: "Could not copy",
+    criteria: {
+      transparency: ["Model transparency", "Who sells what and on what terms"],
+      participant_risk: ["Participant risk", "What happens if the promises fail"],
+      disguised_sales: ["Disguised sales", "How clearly the commercial transaction is described"],
+      pressure: ["Pressure and urgency", "Deadlines, scarcity and emotional leverage"],
+      value: ["Substantive value", "An identifiable product or real deliverable"],
+      distribution: ["Distribution of benefits", "Who profits and who bears the downside"],
+    },
+  },
+} as const;
 
-Analyze the following offer text:
-"""
-`,
-        PROMPT_TEMPLATE_FOOTER: `
-"""
+const SAMPLES = [
+  {
+    ru: "Вы устали работать за зарплату? Наш эксклюзивный курс по криптовалютам гарантирует доход от 5 000 $ уже в первый месяц. Никаких специальных знаний! Более 10 000 выпускников изменили свою жизнь. Только сегодня доступ по специальной цене. Осталось три места. Результаты зависят только от вашей мотивации!",
+    en: "Tired of working for a salary? Our exclusive crypto course guarantees $5,000 in your first month. No prior knowledge needed! Over 10,000 graduates have changed their lives. Special price today only; just three spots left. Your results depend only on your motivation!",
+  },
+  {
+    ru: "Инвестируйте 100 000 рублей в инновационную стратегию. Потенциальная доходность до 45% годовых. Детали бизнес-модели раскрываются после внесения депозита. Предложение действует до конца недели.",
+    en: "Invest $2,000 in our innovative strategy. Potential annual returns of up to 45%. Our business model is disclosed once you make a deposit. This offer expires at the end of the week.",
+  },
+  {
+    ru: "Новый фитнес-челлендж: тело мечты за 14 дней! Участие стоит 12 900 рублей. Отзывы впечатляют, а подробности программы получите после оплаты. Запишитесь прямо сейчас.",
+    en: "Our new fitness challenge: your dream body in 14 days! Enrollment is $199. Testimonials are amazing, and you'll get the program details once you pay. Sign up right now.",
+  },
+  {
+    ru: "Мы разрабатываем приложение для малого бизнеса. Сейчас доступен бесплатный пилот для первых 20 компаний. Нет обещаний экономии или доходности; мы хотим проверить спрос, собрать обратную связь и опубликовать тарифы после пилота.",
+    en: "We are building an app for small businesses. A free pilot is available to the first 20 companies. We make no claims about savings or returns; we're testing demand, collecting feedback and will publish pricing after the pilot.",
+  },
+];
 
-Apply the following **6 evaluation criteria** (on a scale of 0 to 3):
-1. **Model Transparency** — how clearly and honestly it's described where the income comes from, how participation pays off.
-2. **Risk Assessment** — are there real losses for the participant if the author's hypotheses don't work out.
-3. **Sales Disguise** — does the author use a friendly narrative instead of a clear deal.
-4. **Manipulation and Pressure** — time limits, emotional hooks, guilt-tripping.
-5. **Value Content** — is a real skill, experience, product transmitted, or only images and promises.
-6. **Benefit Distribution** — who really gets the value, is a zero-sum effect possible.
+const DEMO_RU = {
+  formal: {
+    headline: "Слишком много гарантий при недостатке проверяемых условий",
+    summary: "Предложение опирается на обещание быстрого заработка и социальное подтверждение, не раскрывая механизм доходности или доказательства результата.",
+    caveat: "Оценивался только текст предложения; реальные данные о продукте и продавце не проверялись.",
+    recommendation: "Не оплачивать курс до проверки договора, условий возврата, программы обучения и независимых подтверждений заявленных результатов.",
+    riskIndex: 7.8,
+    riskLevel: "high" as const,
+    criteria: [
+      { id: "transparency", risk: 2, explanation: "Механизм дохода не раскрыт.", evidence: "«гарантирует доход от 5 000 $»" },
+      { id: "participant_risk", risk: 2, explanation: "Риски и условия возврата не указаны.", evidence: "«Результаты зависят только от вашей мотивации»" },
+      { id: "disguised_sales", risk: 3, explanation: "Продажа подаётся как личная трансформация.", evidence: "«изменили свою жизнь»" },
+      { id: "pressure", risk: 3, explanation: "Используются ограничение времени и дефицит мест.", evidence: "«Только сегодня», «Осталось три места»" },
+      { id: "value", risk: 2, explanation: "Нет конкретной программы и проверяемых результатов.", evidence: "«Никаких специальных знаний!»" },
+      { id: "distribution", risk: 2, explanation: "Доход продавца ясен, выгода покупателя не доказана.", evidence: "«специальной цене»" },
+    ],
+  },
+  satire: {
+    title: "Миллионер после вебинара (ну… почти)",
+    paragraphs: [
+      "Авторы этого предложения, похоже, нашли способ отменить неопределённость финансовых рынков. Правда, подробности способа предлагается узнать после оплаты.",
+      "Особенно удобно, что успех гарантирован рекламой, а неудача заранее объяснена недостатком вашей мотивации.",
+    ],
+    observations: [
+      "Гарантированный доход без описания механизма.",
+      "Тысячи счастливых выпускников без проверяемой статистики.",
+      "Три оставшихся места, о количестве которых знает только реклама.",
+    ],
+    conclusion: "Если курс действительно настолько эффективен, независимая проверка условий ему не повредит.",
+  },
+  model: "demo",
+} satisfies Omit<AnalysisReport, "quota">;
 
-**Output a table** with brief assessments for each criterion and an explanation. Format the table using markdown.
+const DEMO_EN = {
+  formal: {
+    headline: "Strong guarantees, few independently checkable details",
+    summary: "The offer promises quick earnings and invokes social proof without providing a clear mechanism, verifiable outcomes, or meaningful contract terms.",
+    caveat: "Only the submitted wording was reviewed. The seller and product have not been verified independently.",
+    recommendation: "Do not pay before reviewing the contract, refunds, course syllabus and independently corroborated outcomes.",
+    riskIndex: 7.8,
+    riskLevel: "high" as const,
+    criteria: [
+      { id: "transparency", risk: 2, explanation: "The revenue mechanism is unclear.", evidence: "“guarantees $5,000”" },
+      { id: "participant_risk", risk: 2, explanation: "Downside and refund terms are missing.", evidence: "“depend only on your motivation”" },
+      { id: "disguised_sales", risk: 3, explanation: "A sale is framed as personal transformation.", evidence: "“changed their lives”" },
+      { id: "pressure", risk: 3, explanation: "Urgency and scarcity are used.", evidence: "“today only”, “three spots left”" },
+      { id: "value", risk: 2, explanation: "The deliverables remain vague.", evidence: "“No prior knowledge needed”" },
+      { id: "distribution", risk: 2, explanation: "Seller benefits are clearer than buyer benefits.", evidence: "“Special price”" },
+    ],
+  },
+  satire: {
+    title: "Millionaire by the end of the webinar (more or less)",
+    paragraphs: [
+      "The authors appear to have found a way to eliminate uncertainty from financial markets. The explanation is available after checkout.",
+      "A pleasant arrangement: advertising guarantees success, while lack of motivation explains any failure.",
+    ],
+    observations: [
+      "Guaranteed income, mechanism not included.",
+      "Thousands of happy students; no independently checkable statistics.",
+      "Three remaining seats, according to the advertisement.",
+    ],
+    conclusion: "If the offer is as effective as claimed, independent scrutiny should be welcome.",
+  },
+  model: "demo",
+} satisfies Omit<AnalysisReport, "quota">;
 
-Then, provide a **final trust score (0–10)** and output a **recommendation**:
-- Ignore
-- With caution
-- Negotiations possible
-- Reliable
-
-Be sure to indicate a **risk marker** (e.g., ⚠️ High risk, ✅ Low risk, ❗ Medium risk).
-
-Do not use sarcasm or personal attacks. Style — analytical, direct, business-like.
-
-**Important**: Respond in the same language as the analyzed offer text.
-
-The response must include:
-0. **The first line of the response MUST BE**: "Scam-O-Mat Score: X/10" (where X is an **integer** final trust score **from 0 to 10**).
-1. Diagnostics based on 6 criteria (as a markdown table)
-2. Explanation for the final score (the score itself is on a separate first line).
-3. Risk marker (⚠️ / ✅ / ❗)
-4. Recommendation
-`,
-        PROMPT_SARCASTIC_ANALYST_INTRO: `You are an analyst of manipulative marketing schemes, cynical and witty, but without explicit accusations of fraud. Your task is to expose rhetorical tricks, marketing demagoguery, veiled money-making schemes, and questionable persuasion methods.
-`,
-        PROMPT_SARCASTIC_ANALYST_OFFER_TEXT_LABEL: `
-You are analyzing the following **original offer text**:
-"""
-`,
-        PROMPT_SARCASTIC_ANALYST_FORMAL_ANALYSIS_LABEL: `
-"""
-
-At the same time, **consider the following preliminary formal analysis**, but DO NOT REPEAT its conclusions; instead, use it for a deeper sarcastic commentary:
-"""
-`,
-        PROMPT_SARCASTIC_ANALYST_INSTRUCTION_AFTER_INPUTS: `
-"""
-
-Your analysis should be based on the **original offer text**, but taking into account the data from the formal analysis.
-`,
-        PROMPT_SARCASTIC_ANALYST_FOOTER: `
-In doing so:
-- Do not use words like "scam", "fraud".
-- Speak "between the lines", with clever irony.
-- Show what techniques are used: FOMO, social proof, authority bias, obfuscated pricing, emotional pressure, etc.
-- Do not give legal advice, but assess **logical persuasiveness** and **marketing ethics**.
-
-Speak concisely, with a touch of sarcasm. Benchmark — a review by an experienced marketer who left the industry after a series of disappointments.
-
-Always respond in the following structure:
-1. Brief verdict (one or two sentences).
-2. Main triggers / techniques.
-3. Conclusion about the risk-benefit ratio.
-
-If the text is transparent and honest — say so: "A rare case — everything here is open and honest. Commendable."
-
-If the text looks particularly suspicious and resembles known deception schemes, feel free to offer a witty historical or cultural analogy (e.g., "classic info-hustler funnel of the 2010s", "in the spirit of great combinators" or "old wine in new bottles from the world of finance"). Do this wittily and appropriately.
-
-Avoid general phrases, answer to the point.
-The response should be in text format; markdown can be used for lists or emphasis.
-
-**Key requirement**: Always respond in the same language as the analyzed offer text.
-`,
-        FORMAL_PANEL_TITLES: ["Document Analysis", "Expert Assessment", "Formal Conclusion", "Substantive Review", "Analysis Results", "Analytical Report"],
-        SARCASTIC_PANEL_TITLES_LOW_SCORE: ["Red Flag Alert!", "Warning: Minefield!", "Something Smells Fishy!", "Hold On To Your Wallet!", "SOS for Your Budget"],
-        SARCASTIC_PANEL_TITLES_MID_SCORE: ["A Skeptical Look", "There Are Nuances...", "Not So Smooth", "Under the Sarcasm Lens", "Reading Between the Lines"],
-        SARCASTIC_PANEL_TITLES_HIGH_SCORE: ["Well, Alright Then...", "Almost No Catch?", "Surprisingly (Not Sarcasm)", "Worth Considering... With Caution", "Unexpectedly Decent"],
-        SARCASTIC_PANEL_TITLES_DEFAULT: ["A (Very) Private Opinion", "How I See It", "A Few Thoughts Aloud", "Off The Record", "Cynic's Commentary"],
-    }
+const state: {
+  locale: Locale; tone: Tone; offer: string; quota: QuotaStatus | null;
+  report: AnalysisReport | null; loading: boolean; quotaError: boolean; message: string;
+} = {
+  locale: navigator.language.toLowerCase().startsWith("en") ? "en" : "ru",
+  tone: "classic",
+  offer: "",
+  quota: null,
+  report: null,
+  loading: false,
+  quotaError: false,
+  message: "",
 };
 
-let currentLang = 'ru'; // Default language
-const userBrowserLang = navigator.language.split('-')[0];
-if (translations.hasOwnProperty(userBrowserLang)) {
-    currentLang = userBrowserLang;
-}
-const T = translations[currentLang as keyof typeof translations];
-// --- END INTERNATIONALIZATION (I18N) ---
-
-
-// API Key must be in environment variable process.env.API_KEY
-const API_KEY = process.env.API_KEY;
-
-let ai: GoogleGenAI | null = null;
-
-if (API_KEY) {
-    ai = new GoogleGenAI({ apiKey: API_KEY });
+const app = document.querySelector<HTMLDivElement>("#app")!;
+function t() { return TRANSLATIONS[state.locale]; }
+function escapeHtml(input: unknown): string {
+  return String(input ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[char] || char);
 }
 
-const GEMINI_MODEL = 'gemini-2.5-flash';
+const CAT = `<svg class="cat-svg" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+  <circle cx="60" cy="60" r="56" fill="#e7d8b8" stroke="#1d252e" stroke-width="3"/>
+  <path d="M31 51 27 19 49 35 70 31 95 18 91 54" fill="#25272a" stroke="#101519" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M42 35 34 27 35 42M80 34 88 26 86 42" fill="#b0aaa1"/>
+  <ellipse cx="61" cy="62" rx="34" ry="30" fill="#65625c"/>
+  <path d="M32 59Q58 40 89 59L85 77Q60 91 36 77Z" fill="#c1b7a6"/>
+  <path d="M39 52h19l5 3h20l-1 13-5 5H65l-5-7-4 7H42l-6-6-1-14z" fill="#11191e"/>
+  <path d="M61 60h-1" stroke="#d8c5a1" stroke-width="4"/>
+  <path d="M52 76q8 8 16 0" fill="none" stroke="#303235" stroke-width="2"/>
+  <path d="M53 71 61 76 68 71" fill="#27272a"/>
+  <path d="M22 95q11-12 27-14l11 13 12-13q19 2 29 14v14H22Z" fill="#222a32"/>
+  <path d="M49 81 60 95l12-14-4 22-8 8-8-8z" fill="#f3f0e8"/>
+  <path d="M59 94 64 94 69 114 57 114z" fill="#ac3334"/>
+  <path d="M22 95l16 5-5 8m67-13-16 5 6 8" stroke="#585b61" fill="none" stroke-width="2"/>
+  <path d="M37 77 16 73m22 9-22 2m69-7 19-4m-19 9 20 3" stroke="#262a2c" stroke-width="2"/>
+</svg>`;
 
-function parseScore(responseText: string): number | null {
-    if (!responseText) return null;
-    const scoreRegex = new RegExp(T.SCORE_REGEX_PATTERN, 'i');
-    const match = responseText.match(scoreRegex);
-    if (match && match[1]) {
-        const score = parseInt(match[1], 10);
-        if (!isNaN(score) && score >= 0 && score <= 10) {
-            return score;
-        }
-    }
-    return null;
+function levelIndex(level: AnalysisReport["formal"]["riskLevel"]): number {
+  return level === "high" ? 2 : level === "medium" ? 1 : 0;
 }
 
+function shell() {
+  const d = t();
+  document.documentElement.lang = state.locale;
+  document.title = "Fraud-O-Mat · Bullshit Detector";
+  app.innerHTML = `
+  <div class="page-shell">
+    <header class="masthead">
+      <div class="identity">
+        <div class="cat-mark">${CAT}</div>
+        <div class="brand">
+          <div class="brand-line"><h1>Fraud-O-Mat</h1><span class="version">v3.4</span></div>
+          <span class="red-stamp">BULLSHIT DETECTOR</span>
+        </div>
+        <p class="tagline">${escapeHtml(d.slogan)}</p>
+      </div>
+      <div class="mast-actions">
+        <div class="language-switch" role="group" aria-label="Language">
+          <button data-lang="ru" class="${state.locale === "ru" ? "selected" : ""}" aria-pressed="${state.locale === "ru"}">RU</button>
+          <button data-lang="en" class="${state.locale === "en" ? "selected" : ""}" aria-pressed="${state.locale === "en"}">EN</button>
+        </div>
+        <section class="quota-card" aria-label="${escapeHtml(d.analyses)}">
+          <div class="quota-top"><span>⚡ ${escapeHtml(d.analyses)}</span><strong id="quota-left">—</strong></div>
+          <div class="quota-track"><div id="quota-progress" class="quota-progress"></div></div>
+          <div id="quota-reset" class="quota-bottom" aria-live="polite">${escapeHtml(d.quotaPending)}</div>
+        </section>
+        <button class="connect-button" disabled title="${escapeHtml(d.connectSub)}">
+          <span class="link-icon">↗</span>
+          <span><strong>${escapeHtml(d.connecting)}</strong><small>${escapeHtml(d.connectSub)}</small></span>
+        </button>
+      </div>
+    </header>
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Apply translations to HTML elements
-    document.documentElement.lang = currentLang;
-    const appTitleElement = document.getElementById('appTitle') as HTMLHeadingElement;
-    if (appTitleElement) appTitleElement.textContent = T.APP_TITLE;
-    const pageTitleElement = document.querySelector('title');
-    if (pageTitleElement) pageTitleElement.textContent = T.APP_TITLE;
-    
-    const appSubtitleElement = document.getElementById('appSubtitle') as HTMLParagraphElement;
-    if (appSubtitleElement) appSubtitleElement.textContent = T.PAGE_SUBTITLE;
+    <main>
+      <section class="input-card">
+        <div class="input-top">
+          <h2><span class="label-icon">▣</span>${escapeHtml(d.inputHeading)}</h2>
+          <div class="examples"><span>${escapeHtml(d.examples)}</span>
+            ${d.sampleNames.map((name, i) => `<button class="example-pill" data-example="${i}">${escapeHtml(name)}</button>`).join("")}
+          </div>
+        </div>
+        <div class="input-tabs" role="group" aria-label="Input type">
+          <button class="tab active" aria-pressed="true">▤ ${escapeHtml(d.tabs[0])}</button>
+          <button class="tab" disabled title="Coming later">↗ ${escapeHtml(d.tabs[1])}</button>
+          <button class="tab" disabled title="Coming later">⇧ ${escapeHtml(d.tabs[2])}</button>
+        </div>
+        <div class="input-content">
+          <div class="textarea-wrap">
+            <textarea id="offer" maxlength="20000" spellcheck="true" placeholder="${escapeHtml(d.placeholder)}"></textarea>
+            <div id="chars" class="char-count">0 / 20 000</div>
+          </div>
+          <aside class="input-aside">
+            <div class="privacy-card"><span class="privacy-icon">◇</span><div><strong>${escapeHtml(d.privacyTitle)}</strong><p>${escapeHtml(d.privacy)}</p></div></div>
+            <div class="run-options">
+              <span class="minor-label">${escapeHtml(d.tone)}</span>
+              <div class="tone-switch" role="group" aria-label="${escapeHtml(d.tone)}">
+                ${(["soft","classic","sharp"] as Tone[]).map((tone, i) =>
+                  `<button data-tone="${tone}" class="${state.tone === tone ? "active" : ""}" aria-pressed="${state.tone === tone}">${escapeHtml(d.tones[i])}</button>`).join("")}
+              </div>
+            </div>
+            <button id="analyze" class="analyze-button"><span class="sparkle">✦</span><span id="analyze-label">${escapeHtml(d.analyze)}</span><span>→</span></button>
+          </aside>
+        </div>
+        <div id="message" class="message" role="alert" aria-live="polite"></div>
+      </section>
 
-    const inputSectionSrLabel = document.getElementById('input-label') as HTMLHeadingElement;
-    if (inputSectionSrLabel) inputSectionSrLabel.textContent = T.INPUT_SECTION_SR_LABEL;
-    
-    const offerTextLabelElement = document.getElementById('offerTextLabel') as HTMLLabelElement;
-    if (offerTextLabelElement) offerTextLabelElement.textContent = T.INPUT_LABEL;
-    
-    const offerTextarea = document.getElementById('offerText') as HTMLTextAreaElement;
-    if (offerTextarea) {
-        offerTextarea.placeholder = T.TEXTAREA_PLACEHOLDER;
-        offerTextarea.setAttribute('aria-label', T.TEXTAREA_ARIA_LABEL);
+      <section class="results-section" aria-label="${escapeHtml(d.result)}">
+        <div class="results-bar">
+          <div class="results-label"><span class="results-chip">${escapeHtml(d.result)}</span>
+            <span id="report-status" class="status-label">${escapeHtml(d.demo)}</span></div>
+          <button id="copy-report" class="copy-button">▣ ${escapeHtml(d.copy)}</button>
+        </div>
+        <div class="result-grid">
+          <article class="result-panel formal-panel">
+            <div class="panel-header"><div class="panel-heading"><span class="number-icon navy">01</span><div><h2>${escapeHtml(d.formalHeading)}</h2><p>${escapeHtml(d.formalSub)}</p></div></div><div id="risk-meter" class="risk-meter"></div></div>
+            <div id="formal-body"></div>
+          </article>
+          <article class="result-panel satire-panel">
+            <div class="panel-header"><div class="panel-heading"><span class="number-icon violet">02</span><div><h2>${escapeHtml(d.satireHeading)}</h2><p>${escapeHtml(d.satireSub)}</p></div></div></div>
+            <div id="satire-body"></div>
+          </article>
+        </div>
+      </section>
+    </main>
+    <footer class="footer"><span>© 2026 Fraud-O-Mat · v3.4</span><span>${escapeHtml(d.footer)}</span></footer>
+  </div>`;
+
+  const textarea = document.querySelector<HTMLTextAreaElement>("#offer")!;
+  textarea.value = state.offer;
+  textarea.addEventListener("input", () => {
+    state.offer = textarea.value;
+    updateCount();
+    setMessage("");
+    updateAnalyzeButton();
+  });
+  textarea.addEventListener("keydown", (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      event.preventDefault();
+      void analyze();
     }
-    
-    const analyzeButton = document.getElementById('analyzeButton') as HTMLButtonElement;
-    if (analyzeButton) {
-        analyzeButton.textContent = T.ANALYZE_BUTTON;
-        analyzeButton.setAttribute('aria-label', T.ANALYZE_BUTTON_ARIA_LABEL);
-    }
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-lang]").forEach((button) =>
+    button.addEventListener("click", () => {
+      const next = button.dataset.lang as Locale;
+      if (next !== state.locale) { state.locale = next; shell(); }
+    })
+  );
+  document.querySelectorAll<HTMLButtonElement>("[data-tone]").forEach((button) =>
+    button.addEventListener("click", () => {
+      state.tone = button.dataset.tone as Tone;
+      document.querySelectorAll<HTMLButtonElement>("[data-tone]").forEach((b) => {
+        const active = b.dataset.tone === state.tone;
+        b.classList.toggle("active", active);
+        b.setAttribute("aria-pressed", String(active));
+      });
+    })
+  );
+  document.querySelectorAll<HTMLButtonElement>("[data-example]").forEach((button) =>
+    button.addEventListener("click", () => {
+      state.offer = SAMPLES[Number(button.dataset.example)][state.locale];
+      textarea.value = state.offer;
+      updateCount();
+      updateAnalyzeButton();
+      setMessage("");
+      textarea.focus();
+    })
+  );
+  document.querySelector("#analyze")!.addEventListener("click", () => { void analyze(); });
+  document.querySelector("#copy-report")!.addEventListener("click", () => { void copyReport(); });
+  updateCount();
+  updateQuotaUI();
+  updateAnalyzeButton();
+  renderReport();
+  setMessage(state.message);
+}
 
-    const formalOutputLabelElement = document.getElementById('formal-output-label') as HTMLHeadingElement;
-    if (formalOutputLabelElement) formalOutputLabelElement.textContent = T.FORMAL_PANEL_DEFAULT_TITLE;
-    
-    const sarcasticOutputLabelElement = document.getElementById('sarcastic-output-label') as HTMLHeadingElement;
-    if (sarcasticOutputLabelElement) sarcasticOutputLabelElement.textContent = T.SARCASTIC_PANEL_DEFAULT_TITLE;
+function updateCount() {
+  const count = document.querySelector("#chars");
+  if (count) count.textContent = state.offer.length.toLocaleString(state.locale) + " / 20 000";
+}
 
-    const loadingFormalTextElement = document.getElementById('loadingFormalText');
-    if (loadingFormalTextElement) loadingFormalTextElement.textContent = T.LOADING_FORMAL;
-    
-    const loadingSarcasticTextElement = document.getElementById('loadingSarcasticText');
-    if (loadingSarcasticTextElement) loadingSarcasticTextElement.textContent = T.LOADING_SARCASTIC;
+function setMessage(message: string) {
+  state.message = message;
+  const element = document.querySelector("#message");
+  if (element) {
+    element.textContent = message;
+    element.classList.toggle("visible", Boolean(message));
+  }
+}
 
-    const footerTextElement = document.getElementById('footerText');
-    if (footerTextElement) footerTextElement.innerHTML = T.FOOTER_TEXT; // Use innerHTML for &copy;
+function updateQuotaUI() {
+  const d = t();
+  const quota = state.quota;
+  const left = document.querySelector("#quota-left");
+  const reset = document.querySelector("#quota-reset");
+  const progress = document.querySelector<HTMLElement>("#quota-progress");
+  if (!left || !reset || !progress) return;
+  const total = quota ? Math.floor(quota.dailyRequests / quota.requestsPerAnalysis) : 10;
+  if (!quota || quota.state !== "ready" || quota.remainingAnalyses === null) {
+    left.textContent = "— / " + total;
+    reset.textContent = state.quotaError ? d.quotaFailure : quota?.state === "unconfigured" ? d.quotaNotReady : d.quotaPending;
+    progress.style.width = "0%";
+    return;
+  }
+  left.textContent = quota.remainingAnalyses + " / " + total;
+  progress.style.width = String(Math.min(100, quota.remainingAnalyses / Math.max(1, total) * 100)) + "%";
+  reset.textContent = d.reset + ": " + new Intl.DateTimeFormat(state.locale, {
+    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+  }).format(new Date(quota.resetAt));
+}
 
-    // Get other DOM elements
-    const resultsContainer = document.querySelector('.results-container') as HTMLDivElement;
-    const resultDiv = document.getElementById('result') as HTMLDivElement;
-    const loadingDiv = document.getElementById('loading') as HTMLDivElement;
-    const errorDiv = document.getElementById('error') as HTMLDivElement;
+function updateAnalyzeButton() {
+  const btn = document.querySelector<HTMLButtonElement>("#analyze");
+  const label = document.querySelector("#analyze-label");
+  if (!btn || !label) return;
+  const usable = state.quota?.state === "ready" &&
+    (state.quota.remainingAnalyses ?? 0) > 0;
+  btn.disabled = state.loading || !usable;
+  label.textContent = state.loading ? t().busy : t().analyze;
+  btn.classList.toggle("busy", state.loading);
+}
 
-    const sarcasticResultDiv = document.getElementById('sarcasticResult') as HTMLDivElement;
-    const sarcasticLoadingDiv = document.getElementById('sarcasticLoading') as HTMLDivElement;
-    const sarcasticErrorDiv = document.getElementById('sarcasticError') as HTMLDivElement;
-    
-    const globalErrorDiv = errorDiv; 
+async function refreshQuota() {
+  try {
+    const response = await fetch("/api/quota", { cache: "no-store" });
+    if (!response.ok) throw new Error("Quota request failed");
+    const quota = await response.json() as QuotaStatus;
+    state.quota = quota;
+    state.quotaError = false;
+  } catch {
+    state.quotaError = true;
+    state.quota = null;
+  }
+  updateQuotaUI();
+  updateAnalyzeButton();
+}
 
-    if (!API_KEY || !ai) {
-        if (globalErrorDiv) {
-            globalErrorDiv.textContent = T.ERROR_CONFIG;
-            globalErrorDiv.style.display = 'block';
-            if(resultsContainer) resultsContainer.style.display = 'block'; 
-            if(formalOutputLabelElement) formalOutputLabelElement.textContent = T.ERROR_CONFIG.split(':')[0]; // "Ошибка конфигурации" or "Configuration error"
-            if(sarcasticOutputLabelElement) sarcasticOutputLabelElement.style.display = 'none';
-        } else {
-            alert(T.ERROR_CONFIG); 
-        }
-        if(analyzeButton) analyzeButton.disabled = true;
-        if(offerTextarea) offerTextarea.disabled = true;
-        if(loadingDiv) loadingDiv.style.display = 'none';
-        if(sarcasticLoadingDiv) sarcasticLoadingDiv.style.display = 'none';
-        return;
-    }
-
-    const markdownConverter = new showdown.Converter({
-        tables: true,
-        simplifiedAutoLink: true,
-        strikethrough: true,
-        tasklists: true,
-        simpleLineBreaks: true,
-        ghCompatibleHeaderId: true,
+async function analyze() {
+  const d = t();
+  if (!state.offer.trim()) { setMessage(d.empty); return; }
+  if (state.offer.length > 20000) { setMessage(d.tooLong); return; }
+  if (state.loading) return;
+  if (state.quota?.state !== "ready") { setMessage(d.quotaNotReady); return; }
+  if ((state.quota.remainingAnalyses || 0) <= 0) { setMessage(d.exhausted); return; }
+  state.loading = true;
+  setMessage("");
+  updateAnalyzeButton();
+  try {
+    const response = await fetch("/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ offer: state.offer.trim(), locale: state.locale, tone: state.tone }),
     });
-
-    if (analyzeButton && offerTextarea && resultsContainer && formalOutputLabelElement && resultDiv && loadingDiv && errorDiv && sarcasticOutputLabelElement && sarcasticResultDiv && sarcasticLoadingDiv && sarcasticErrorDiv) {
-        analyzeButton.addEventListener('click', async () => {
-            const offerText = offerTextarea.value.trim();
-            
-            if (!offerText) {
-                resultsContainer.style.display = 'block'; 
-                formalOutputLabelElement.textContent = T.ERROR_INPUT_EMPTY.split(':')[0]; // "Ошибка ввода" or similar
-                sarcasticOutputLabelElement.textContent = ''; 
-                errorDiv.textContent = T.ERROR_INPUT_EMPTY;
-                errorDiv.style.display = 'block';
-                resultDiv.style.display = 'none';
-                sarcasticResultDiv.style.display = 'none';
-                sarcasticErrorDiv.style.display = 'none';
-                loadingDiv.style.display = 'none';
-                sarcasticLoadingDiv.style.display = 'none';
-                return;
-            }
-
-            resultsContainer.style.display = 'flex';
-            analyzeButton.disabled = true;
-            offerTextarea.disabled = true;
-
-            resultDiv.innerHTML = '';
-            resultDiv.style.display = 'none';
-            errorDiv.style.display = 'none';
-            sarcasticResultDiv.innerHTML = '';
-            sarcasticResultDiv.style.display = 'none';
-            sarcasticErrorDiv.style.display = 'none';
-            
-            loadingDiv.style.display = 'flex';
-            sarcasticLoadingDiv.style.display = 'flex';
-
-            const currentFormalTitle = T.FORMAL_PANEL_TITLES[Math.floor(Math.random() * T.FORMAL_PANEL_TITLES.length)];
-            formalOutputLabelElement.textContent = currentFormalTitle;
-            sarcasticOutputLabelElement.textContent = T.SARCASTIC_PANEL_TITLES_DEFAULT[Math.floor(Math.random() * T.SARCASTIC_PANEL_TITLES_DEFAULT.length)];
-
-            let formalAnalysisText = '';
-            let parsedScoreVal: number | null = null;
-
-            try {
-                const formalPrompt = `${T.PROMPT_TEMPLATE_HEADER}${offerText}${T.PROMPT_TEMPLATE_FOOTER}`;
-                try {
-                    const formalResponse: GenerateContentResponse = await ai!.models.generateContent({
-                        model: GEMINI_MODEL,
-                        contents: formalPrompt,
-                    });
-                    formalAnalysisText = formalResponse.text || '';
-                    const htmlContent = markdownConverter.makeHtml(formalAnalysisText);
-                    resultDiv.innerHTML = htmlContent;
-                    resultDiv.style.display = 'block';
-
-                    parsedScoreVal = parseScore(formalAnalysisText);
-                    if (parsedScoreVal !== null) {
-                        formalOutputLabelElement.textContent = `${currentFormalTitle} (${parsedScoreVal}/10)`;
-                    } else {
-                         formalOutputLabelElement.textContent = currentFormalTitle;
-                    }
-                } catch (formalApiError: any) {
-                    console.error('Gemini API error (formal analysis):', formalApiError);
-                    let errorMessage = T.ERROR_FORMAL_API_BASE;
-                    if (formalApiError && formalApiError.message) {
-                        errorMessage += ` Details: ${formalApiError.message}`;
-                    }
-                    errorDiv.textContent = errorMessage;
-                    errorDiv.style.display = 'block';
-
-                    sarcasticOutputLabelElement.textContent = T.SARCASTIC_ANALYSIS_CANCELLED_TITLE;
-                    sarcasticResultDiv.innerHTML = `<p>${T.SARCASTIC_ANALYSIS_CANCELLED_MSG}</p>`;
-                    sarcasticResultDiv.style.display = 'block';
-                    sarcasticErrorDiv.style.display = 'none';
-                    sarcasticLoadingDiv.style.display = 'none';
-                    throw formalApiError; 
-                } finally {
-                    loadingDiv.style.display = 'none';
-                }
-
-                if (parsedScoreVal !== null) {
-                    if (parsedScoreVal <= 3) {
-                        sarcasticOutputLabelElement.textContent = T.SARCASTIC_PANEL_TITLES_LOW_SCORE[Math.floor(Math.random() * T.SARCASTIC_PANEL_TITLES_LOW_SCORE.length)];
-                    } else if (parsedScoreVal <= 6) {
-                        sarcasticOutputLabelElement.textContent = T.SARCASTIC_PANEL_TITLES_MID_SCORE[Math.floor(Math.random() * T.SARCASTIC_PANEL_TITLES_MID_SCORE.length)];
-                    } else {
-                        sarcasticOutputLabelElement.textContent = T.SARCASTIC_PANEL_TITLES_HIGH_SCORE[Math.floor(Math.random() * T.SARCASTIC_PANEL_TITLES_HIGH_SCORE.length)];
-                    }
-                }
-
-                const sarcasticPrompt = 
-                    `${T.PROMPT_SARCASTIC_ANALYST_INTRO}` +
-                    `${T.PROMPT_SARCASTIC_ANALYST_OFFER_TEXT_LABEL}${offerText}` +
-                    `${T.PROMPT_SARCASTIC_ANALYST_FORMAL_ANALYSIS_LABEL}${formalAnalysisText}` +
-                    `${T.PROMPT_SARCASTIC_ANALYST_INSTRUCTION_AFTER_INPUTS}` +
-                    `${T.PROMPT_SARCASTIC_ANALYST_FOOTER}`;
-
-                try {
-                    const sarcasticResponse: GenerateContentResponse = await ai!.models.generateContent({
-                        model: GEMINI_MODEL,
-                        contents: sarcasticPrompt,
-                    });
-                    const analysisText = sarcasticResponse.text || '';
-                    const htmlContent = markdownConverter.makeHtml(analysisText);
-                    sarcasticResultDiv.innerHTML = htmlContent;
-                    sarcasticResultDiv.style.display = 'block';
-                } catch (sarcasticApiError: any) {
-                    console.error('Gemini API error (sarcastic analysis):', sarcasticApiError);
-                    let errorMessage = T.ERROR_SARCASTIC_API_BASE;
-                     if (sarcasticApiError && sarcasticApiError.message) {
-                        errorMessage += ` Details: ${sarcasticApiError.message}`;
-                    }
-                    sarcasticErrorDiv.textContent = errorMessage;
-                    sarcasticErrorDiv.style.display = 'block';
-                } finally {
-                    sarcasticLoadingDiv.style.display = 'none';
-                }
-
-            } catch (e: any) { 
-                console.error('Unexpected error during sequential analysis:', e);
-                if (errorDiv.style.display === 'none') { // Only show if not already shown by formal analysis error
-                    errorDiv.textContent = T.ERROR_UNEXPECTED;
-                    errorDiv.style.display = 'block';
-                }
-                sarcasticLoadingDiv.style.display = 'none';
-            } finally {
-                loadingDiv.style.display = 'none';
-                sarcasticLoadingDiv.style.display = 'none';
-                analyzeButton.disabled = false;
-                offerTextarea.disabled = false;
-            }
-        });
-    } else {
-        console.error('Failed to find necessary DOM elements for one or both analyzers.');
-        if (resultsContainer) resultsContainer.style.display = 'block'; 
-        if (formalOutputLabelElement) formalOutputLabelElement.textContent = T.ERROR_INIT_FAILED.split(':')[0];
-        if (sarcasticOutputLabelElement) sarcasticOutputLabelElement.style.display = 'none';
-        if (globalErrorDiv) {
-            globalErrorDiv.textContent = T.ERROR_INIT_FAILED;
-            globalErrorDiv.style.display = 'block';
-        } else {
-            alert(T.ERROR_INIT_FAILED);
-        }
-        if(loadingDiv) loadingDiv.style.display = 'none';
-        if(sarcasticLoadingDiv) sarcasticLoadingDiv.style.display = 'none';
+    const body = await response.json() as AnalysisReport & { error?: string };
+    if (body.quota) state.quota = body.quota;
+    if (!response.ok) {
+      const error = body.error || "";
+      const translated = d.errors[error as keyof typeof d.errors];
+      throw new Error(translated || d.error);
     }
-});
+    state.report = body;
+    renderReport();
+    document.querySelector(".results-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (error) {
+    setMessage(error instanceof Error ? error.message : d.error);
+  } finally {
+    state.loading = false;
+    updateQuotaUI();
+    updateAnalyzeButton();
+    void refreshQuota();
+  }
+}
+
+function report(): AnalysisReport {
+  if (state.report) return state.report;
+  const demo = state.locale === "ru" ? DEMO_RU : DEMO_EN;
+  return {
+    ...(demo as Omit<AnalysisReport, "quota">),
+    quota: state.quota || {
+      state: "unconfigured", dailyRequests: 20, requestsPerAnalysis: 2,
+      remainingAnalyses: null, usedRequests: null, resetAt: new Date().toISOString(),
+    },
+  };
+}
+
+function renderReport() {
+  const current = report();
+  const d = t();
+  const isDemo = !state.report;
+  const status = document.querySelector("#report-status");
+  if (status) status.textContent = isDemo ? d.demo : d.live;
+
+  const formal = current.formal;
+  const riskLevel = formal.riskLevel === "high" ? "high" : formal.riskLevel === "medium" ? "medium" : "low";
+  const meter = document.querySelector("#risk-meter");
+  if (meter) meter.innerHTML = `<div class="meter-arc ${riskLevel}" aria-hidden="true">◔</div>
+    <div><span class="meter-caption">${escapeHtml(d.heuristic)}</span>
+    <strong class="meter-score">${Number(formal.riskIndex).toFixed(1)} <small>/ 10</small></strong>
+    <span class="meter-risk">${escapeHtml(d.level[levelIndex(riskLevel)])}</span></div>`;
+
+  const formalBody = document.querySelector("#formal-body");
+  if (formalBody) {
+    formalBody.innerHTML = `
+      <p class="report-summary">${escapeHtml(formal.summary)}</p>
+      <div class="criteria-list">${formal.criteria.map((c) => {
+        const descriptor = d.criteria[c.id as CriterionId] || d.criteria.transparency;
+        const value = Math.max(0, Math.min(3, Number(c.risk) || 0));
+        return `<section class="criteria-row">
+          <div class="criteria-mark criterion-${escapeHtml(c.id)}">✦</div>
+          <div class="criteria-copy"><strong>${escapeHtml(descriptor[0])}</strong>
+            <small>${escapeHtml(c.explanation || descriptor[1])}</small></div>
+          <div class="criteria-bar" aria-label="${value} / 3"><div style="width:${value / 3 * 100}%"></div></div>
+          <b class="criteria-value">${value} / 3</b>
+          <blockquote class="criteria-evidence">${escapeHtml(c.evidence)}</blockquote>
+        </section>`;
+      }).join("")}</div>
+      <div class="recommendation"><span class="recommendation-icon">☼</span><div><strong>${escapeHtml(d.recommendation)}</strong>
+        <p>${escapeHtml(formal.recommendation)}</p>
+        <small>${escapeHtml(d.caveat)} ${escapeHtml(formal.caveat)}</small></div></div>
+      <p class="heuristic-note">${escapeHtml(d.note)}</p>`;
+  }
+
+  const satireBody = document.querySelector("#satire-body");
+  if (satireBody) satireBody.innerHTML = `<div class="roast-paper">
+    <div class="roast-mark">“</div>
+    <h3>${escapeHtml(current.satire.title)}</h3>
+    ${current.satire.paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("")}
+    <div class="observations"><strong>${escapeHtml(d.observations)}</strong>
+    <ul>${current.satire.observations.map((p) => `<li>${escapeHtml(p)}</li>`).join("")}</ul></div>
+    <p class="roast-conclusion">${escapeHtml(current.satire.conclusion)}</p>
+    </div>`;
+}
+
+async function copyReport() {
+  const r = report();
+  const d = t();
+  const content = [
+    "Fraud-O-Mat · " + d.formalHeading,
+    r.formal.headline,
+    d.heuristic + ": " + r.formal.riskIndex.toFixed(1) + "/10",
+    r.formal.summary,
+    ...r.formal.criteria.map((c) =>
+      d.criteria[c.id][0] + ": " + c.risk + "/3 — " + c.explanation + " [" + c.evidence + "]"),
+    d.recommendation + ": " + r.formal.recommendation,
+    "",
+    d.satireHeading + ": " + r.satire.title,
+    ...r.satire.paragraphs,
+    ...r.satire.observations.map((x) => "• " + x),
+    r.satire.conclusion,
+    "",
+    d.note,
+  ].join("\n");
+  try {
+    await navigator.clipboard.writeText(content);
+    const button = document.querySelector("#copy-report");
+    if (button) {
+      button.textContent = "✓ " + d.copied;
+      window.setTimeout(() => { button.textContent = "▣ " + d.copy; }, 1700);
+    }
+  } catch {
+    setMessage(d.copyError);
+  }
+}
+
+shell();
+void refreshQuota();
+window.setInterval(() => { void refreshQuota(); }, 60_000);

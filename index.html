@@ -1,61 +1,14 @@
-<!DOCTYPE html>
-<html lang="ru"> <!-- Default lang, will be updated by JS -->
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Разводк-О-Мат v3.2</title> <!-- Will be updated by JS -->
-    <link rel="stylesheet" href="index.css">
-    <script type="module" src="index.tsx"></script>
-<script type="importmap">
-{
-  "imports": {
-    "@google/genai": "https://esm.sh/@google/genai@^1.2.0",
-    "showdown": "https://esm.sh/showdown@^2.1.0"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
-</head>
-<body>
-    <div class="container">
-        <header>
-            <h1 id="appTitle">Разводк-О-Мат v3.2</h1> <!-- Will be updated by JS -->
-            <p id="appSubtitle">Последовательный анализ сомнительных офферов: формальная оценка и саркастический комментарий.</p> <!-- Will be updated by JS -->
-        </header>
-        <main>
-            <section class="input-section" aria-labelledby="input-label">
-                <h2 id="input-label" class="sr-only">Ввод текста оффера</h2> <!-- Will be updated by JS -->
-                <label for="offerText" id="offerTextLabel">Введите текст оффера или коммерческого предложения для анализа:</label> <!-- Will be updated by JS -->
-                <textarea id="offerText" rows="10" placeholder="Вставьте сюда текст оффера..." aria-label="Текст оффера для анализа"></textarea> <!-- Placeholder and aria-label will be updated by JS -->
-                <button id="analyzeButton" aria-label="Начать анализ оффера">Анализировать</button> <!-- Text and aria-label will be updated by JS -->
-            </section>
-
-            <div class="results-container" style="display: none;">
-                <section class="output-section result-panel" aria-labelledby="formal-output-label">
-                    <h2 id="formal-output-label" class="panel-title">Формальный анализ</h2> <!-- Will be updated by JS -->
-                    <div id="loading" class="loading-indicator" role="status" aria-live="polite" style="display: none;">
-                        <div class="spinner"></div>
-                        <span id="loadingFormalText">Анализирую... Пожалуйста, подождите.</span> <!-- Will be updated by JS -->
-                    </div>
-                    <div id="error" class="error-message" role="alert" aria-live="assertive" style="display: none;"></div>
-                    <div id="result" class="result-content" aria-live="polite" style="display: none;"></div>
-                </section>
-
-                <section class="output-section result-panel" aria-labelledby="sarcastic-output-label">
-                    <h2 id="sarcastic-output-label" class="panel-title">Саркастический комментарий</h2> <!-- Will be updated by JS -->
-                    <div id="sarcasticLoading" class="loading-indicator" role="status" aria-live="polite" style="display: none;">
-                        <div class="spinner"></div>
-                        <span id="loadingSarcasticText">Саркастический ум размышляет...</span> <!-- Will be updated by JS -->
-                    </div>
-                    <div id="sarcasticError" class="error-message" role="alert" aria-live="assertive" style="display: none;"></div>
-                    <div id="sarcasticResult" class="result-content" aria-live="polite" style="display: none;"></div>
-                </section>
-            </div>
-        </main>
-        <footer>
-            <p id="footerText">&copy; 2024 Разводк-О-Мат v3.2. Все права защищены (но это не точно).</p> <!-- Will be updated by JS -->
-        </footer>
-    </div>
-<script type="module" src="/index.tsx"></script>
-</body>
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f3efe8" />
+    <meta name="description" content="Fraud-O-Mat — two-stage critique of suspicious marketing offers: evidence first, satire second." />
+    <title>Fraud-O-Mat · Bullshit Detector</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
 </html>
