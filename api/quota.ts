@@ -1,4 +1,4 @@
-import { getQuota } from "../server/quota";
+import { getQuota } from "../server/quota.js";
 
 export default {
   async fetch(request: Request): Promise<Response> {

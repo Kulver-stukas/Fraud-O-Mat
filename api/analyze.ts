@@ -1,5 +1,5 @@
-import { analyzeOffer } from "../server/analysis";
-import { getQuota, reserveAnalysis } from "../server/quota";
+import { analyzeOffer } from "../server/analysis.js";
+import { getQuota, reserveAnalysis } from "../server/quota.js";
 import type { Locale, Tone } from "../shared/types";
 
 const MAX_CHARS = 20000;
